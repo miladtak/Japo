@@ -69,8 +69,12 @@ class ProcessedVideoExporter(
                         onProgress((fraction * 100f).toInt())
                         if (result.bitmap !== frame && !result.bitmap.isRecycled) result.bitmap.recycle()
                         result.alphaMask?.let { if (!it.isRecycled) it.recycle() }
-                        if (frame !== decoded && !frame.isRecycled) frame.recycle()
-                        if (decoded !== normalizedFirst && decoded !== frame && !decoded.isRecycled) decoded.recycle()
+                        if (frame !== decoded) {
+                            if (!frame.isRecycled) frame.recycle()
+                            if (decoded !== normalizedFirst && !decoded.isRecycled) decoded.recycle()
+                        } else if (decoded !== normalizedFirst && !decoded.isRecycled) {
+                            decoded.recycle()
+                        }
                         timestamp += request.frameStepMs
                     }
                 } finally {
