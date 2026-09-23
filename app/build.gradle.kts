@@ -22,4 +22,5 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
+    implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta6")
 }
