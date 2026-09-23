@@ -161,8 +161,8 @@ private object MediaCodecListCompat {
 
     fun chooseYuv420Format(info: MediaCodecInfo): Int? =
         info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).colorFormats.firstOrNull {
-            it == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible ||
-                it == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar ||
-                it == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar
+            it == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar ||
+                it == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar ||
+                it == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
         }
 }
