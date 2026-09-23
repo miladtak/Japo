@@ -26,6 +26,10 @@ import com.miladtak.japo.decoder.Media3VideoDecoder
 import com.miladtak.japo.export.ExportFilter
 import com.miladtak.japo.export.ExportRequest
 import com.miladtak.japo.export.VideoExportManager
+import com.miladtak.japo.export.ProcessedVideoExporter
+import com.miladtak.japo.export.ProcessedVideoExportRequest
+import com.miladtak.japo.processing.FrameProcessingConfig
+import com.miladtak.japo.processing.StyleMode
 import com.miladtak.japo.logging.ErrorLogStore
 import com.miladtak.japo.layers.Layer
 import com.miladtak.japo.timeline.TimelineClip
@@ -41,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var projects: ProjectStore
     private lateinit var segmenter: MlKitPersonSegmenter
     private lateinit var exporter: VideoExportManager
+    private lateinit var processedExporter: ProcessedVideoExporter
     private lateinit var status: TextView
     private lateinit var playButton: Button
     private lateinit var seekBar: SeekBar
@@ -98,6 +103,7 @@ class MainActivity : ComponentActivity() {
         projects = ProjectStore(this)
         segmenter = MlKitPersonSegmenter()
         exporter = VideoExportManager(this)
+        processedExporter = ProcessedVideoExporter(this)
         decoder = Media3VideoDecoder(this)
         findViewById<PlayerView>(R.id.playerView).player = decoder.player()
 
@@ -205,6 +211,52 @@ class MainActivity : ComponentActivity() {
         val output = File(outputDir, "Japo_" + System.currentTimeMillis() + ".mp4")
         exportButton.isEnabled = false
         status.text = getString(R.string.exporting, 0)
+
+        val style = when (filter) {
+            ExportFilter.ANIME -> StyleMode.ANIME
+            ExportFilter.PENCIL -> StyleMode.PENCIL
+            ExportFilter.INK -> StyleMode.INK
+            ExportFilter.WATERCOLOR -> StyleMode.WATERCOLOR
+            ExportFilter.COMIC -> StyleMode.COMIC
+            ExportFilter.CARTOON -> StyleMode.CARTOON
+            ExportFilter.SKETCH -> StyleMode.SKETCH
+            ExportFilter.OIL -> StyleMode.OIL
+            ExportFilter.ILLUSTRATION -> StyleMode.ILLUSTRATION
+            else -> StyleMode.NONE
+        }
+        if (style != StyleMode.NONE) {
+            try {
+                processedExporter.export(
+                    ProcessedVideoExportRequest(
+                        source = source,
+                        output = output,
+                        startMs = start,
+                        endMs = end,
+                        config = FrameProcessingConfig(style = style, styleStrength = 0.65f)
+                    ),
+                    onProgress = { percent -> runOnUiThread { status.text = getString(R.string.exporting, percent) } },
+                    onComplete = { file ->
+                        val published = publishExport(file)
+                        runOnUiThread {
+                            exportButton.isEnabled = true
+                            status.text = getString(R.string.export_done, published)
+                        }
+                    },
+                    onError = { error ->
+                        logs.add("processed-export", "Processed video export failed", error)
+                        runOnUiThread {
+                            exportButton.isEnabled = true
+                            status.text = getString(R.string.export_failed, error.message ?: error.javaClass.simpleName)
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                logs.add("processed-export", "Unable to start processed export", e)
+                exportButton.isEnabled = true
+                status.text = getString(R.string.export_failed, e.message ?: "unknown error")
+            }
+            return
+        }
 
         try {
             exporter.export(
