@@ -16,7 +16,7 @@
 - Temporal alpha-mask smoothing engine
 - Local alpha-mask refinement component
 - Local RGB chroma-key processing on the current extracted frame
-- Real MP4 export through Media3 Transformer
+- Real MP4 export through Media3 Transformer with trim and deterministic stylized filters (not neural stylization)
 - Source-aware timeline clip model and multi-clip concatenation export backend
 - Trim start/end controls
 - Grayscale, invert, brightness and contrast export effects
