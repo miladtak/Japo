@@ -339,7 +339,7 @@ class MainActivity : ComponentActivity() {
             val uri = decoder.currentUri() ?: error("ابتدا یک ویدیو وارد کنید.")
             val id = UUID.randomUUID().toString()
             val duration = decoder.duration()
-            projects.save(VideoProject(id, "Project " + id.take(8), uri.toString(), durationMs = duration, clips = listOf(TimelineClip("clip-" + id.take(8), 0L, duration)), layers = listOf(Layer("video-" + id.take(8), "Video"))))
+            projects.save(VideoProject(id, "Project " + id.take(8), uri.toString(), durationMs = duration, clips = listOf(TimelineClip("clip-" + id.take(8), uri.toString(), 0L, duration, 0)), layers = listOf(Layer("video-" + id.take(8), "Video"))))
             status.text = "پروژه ذخیره شد."
         } catch (e: Exception) {
             logs.add("project", "Unable to save project", e)
