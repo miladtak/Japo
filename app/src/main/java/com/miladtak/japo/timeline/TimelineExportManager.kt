@@ -9,10 +9,11 @@ import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.Transformer
+import androidx.media3.common.util.UnstableApi
 import java.io.File
 
 class TimelineExportManager(private val context: Context) {
-    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    @OptIn(UnstableApi::class)
     fun export(
         clips: List<TimelineClip>,
         output: File,
