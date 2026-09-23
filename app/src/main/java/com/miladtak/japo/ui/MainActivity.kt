@@ -6,11 +6,15 @@ import android.graphics.Color
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.SeekBar
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,10 +22,14 @@ import androidx.media3.ui.PlayerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.miladtak.japo.R
 import com.miladtak.japo.decoder.Media3VideoDecoder
+import com.miladtak.japo.export.ExportFilter
+import com.miladtak.japo.export.ExportRequest
+import com.miladtak.japo.export.VideoExportManager
 import com.miladtak.japo.logging.ErrorLogStore
 import com.miladtak.japo.projects.ProjectStore
 import com.miladtak.japo.segmentation.MlKitPersonSegmenter
 import com.miladtak.japo.video.VideoProject
+import java.io.File
 import java.util.UUID
 
 class MainActivity : ComponentActivity() {
@@ -29,9 +37,14 @@ class MainActivity : ComponentActivity() {
     private lateinit var logs: ErrorLogStore
     private lateinit var projects: ProjectStore
     private lateinit var segmenter: MlKitPersonSegmenter
+    private lateinit var exporter: VideoExportManager
     private lateinit var status: TextView
     private lateinit var playButton: Button
     private lateinit var seekBar: SeekBar
+    private lateinit var startSeconds: EditText
+    private lateinit var endSeconds: EditText
+    private lateinit var filterSpinner: Spinner
+    private lateinit var exportButton: Button
     private val handler = Handler(Looper.getMainLooper())
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -40,10 +53,12 @@ class MainActivity : ComponentActivity() {
 
     private val progressTask = object : Runnable {
         override fun run() {
-            val duration = decoder.duration()
-            if (duration > 0L) {
-                seekBar.max = duration.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                seekBar.progress = decoder.position().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            if (::decoder.isInitialized) {
+                val duration = decoder.duration()
+                if (duration > 0L) {
+                    seekBar.max = duration.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                    seekBar.progress = decoder.position().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                }
             }
             handler.postDelayed(this, 250L)
         }
@@ -52,25 +67,43 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
         status = findViewById(R.id.statusText)
         playButton = findViewById(R.id.playButton)
         seekBar = findViewById(R.id.seekBar)
+        startSeconds = findViewById(R.id.startSeconds)
+        endSeconds = findViewById(R.id.endSeconds)
+        filterSpinner = findViewById(R.id.filterSpinner)
+        exportButton = findViewById(R.id.exportButton)
+
         logs = ErrorLogStore(this)
         projects = ProjectStore(this)
         segmenter = MlKitPersonSegmenter()
+        exporter = VideoExportManager(this)
         decoder = Media3VideoDecoder(this)
         findViewById<PlayerView>(R.id.playerView).player = decoder.player()
 
-        findViewById<Button>(R.id.importButton).setOnClickListener { picker.launch(arrayOf("video/*")) }
+        val filterLabels = listOf("بدون فیلتر", "سیاه و سفید", "معکوس", "روشنایی", "کنتراست")
+        filterSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, filterLabels)
+
+        findViewById<Button>(R.id.importButton).setOnClickListener {
+            picker.launch(arrayOf("video/*"))
+        }
         playButton.setOnClickListener {
-            if (decoder.isPlaying()) { decoder.pause(); playButton.setText(R.string.play) }
-            else { decoder.play(); playButton.setText(R.string.pause) }
+            if (decoder.isPlaying()) {
+                decoder.pause()
+                playButton.setText(R.string.play)
+            } else {
+                decoder.play()
+                playButton.setText(R.string.pause)
+            }
         }
         findViewById<Button>(R.id.restartButton).setOnClickListener { decoder.restart() }
         findViewById<Button>(R.id.saveButton).setOnClickListener { saveCurrentProject() }
         findViewById<Button>(R.id.logButton).setOnClickListener { showErrorLog() }
         findViewById<Button>(R.id.segmentButton).setOnClickListener { segmentCurrentFrame() }
         findViewById<Button>(R.id.chromaButton).setOnClickListener { chromaCurrentFrame() }
+        exportButton.setOnClickListener { exportVideo() }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -93,6 +126,64 @@ class MainActivity : ComponentActivity() {
             status.text = e.message ?: "Import failed"
         }
     }
+
+    private fun exportVideo() {
+        val source = decoder.currentUri()
+        if (source == null) {
+            status.text = "ابتدا یک ویدیو وارد کنید."
+            return
+        }
+        val duration = decoder.duration()
+        val start = parseSeconds(startSeconds.text.toString()).coerceAtLeast(0L)
+        val enteredEnd = parseSeconds(endSeconds.text.toString())
+        val end = if (enteredEnd > 0L) enteredEnd.coerceAtMost(duration) else duration
+        if (duration <= 0L || start >= end) {
+            status.text = "بازه خروجی نامعتبر است."
+            return
+        }
+
+        val filter = when (filterSpinner.selectedItemPosition) {
+            1 -> ExportFilter.GRAYSCALE
+            2 -> ExportFilter.INVERT
+            3 -> ExportFilter.BRIGHT
+            4 -> ExportFilter.CONTRAST
+            else -> ExportFilter.NONE
+        }
+
+        val outputDir = getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: filesDir
+        val output = File(outputDir, "Japo_" + System.currentTimeMillis() + ".mp4")
+        exportButton.isEnabled = false
+        status.text = getString(R.string.exporting, 0)
+
+        try {
+            exporter.export(
+                ExportRequest(source, output, start, end, filter),
+                onProgress = { percent ->
+                    runOnUiThread { status.text = getString(R.string.exporting, percent) }
+                },
+                onComplete = { file ->
+                    runOnUiThread {
+                        exportButton.isEnabled = true
+                        status.text = getString(R.string.export_done, file.absolutePath)
+                    }
+                },
+                onError = { error ->
+                    logs.add("export", "Video export failed", error)
+                    runOnUiThread {
+                        exportButton.isEnabled = true
+                        status.text = getString(R.string.export_failed, error.message ?: error.javaClass.simpleName)
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            logs.add("export", "Unable to start export", e)
+            exportButton.isEnabled = true
+            status.text = getString(R.string.export_failed, e.message ?: "unknown error")
+        }
+    }
+
+    private fun parseSeconds(value: String): Long =
+        value.trim().toDoubleOrNull()?.let { (it * 1000.0).toLong() } ?: 0L
 
     private fun segmentCurrentFrame() {
         val uri = decoder.currentUri()
@@ -131,18 +222,6 @@ class MainActivity : ComponentActivity() {
         }.start()
     }
 
-    private fun showMask(mask: Bitmap) {
-        val image = ImageView(this)
-        image.setBackgroundColor(Color.DKGRAY)
-        image.setImageBitmap(mask)
-        image.adjustViewBounds = true
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.segmentation_result)
-            .setView(image)
-            .setPositiveButton(R.string.close, null)
-            .show()
-    }
-
     private fun chromaCurrentFrame() {
         val uri = decoder.currentUri()
         if (uri == null) {
@@ -161,12 +240,7 @@ class MainActivity : ComponentActivity() {
                 retriever.release()
                 if (frame == null) error("فریم فعلی قابل خواندن نیست.")
                 val processor = com.miladtak.japo.chroma.ChromaKeyProcessor()
-                val result = processor.removeKey(
-                    frame,
-                    keyR = 0.05f,
-                    keyG = 0.80f,
-                    keyB = 0.08f
-                )
+                val result = processor.removeKey(frame, 0.05f, 0.80f, 0.08f)
                 runOnUiThread {
                     status.text = "حذف پرده سبز انجام شد."
                     showProcessed(result)
@@ -176,6 +250,18 @@ class MainActivity : ComponentActivity() {
                 runOnUiThread { status.text = e.message ?: "Chroma processing failed" }
             }
         }.start()
+    }
+
+    private fun showMask(mask: Bitmap) {
+        val image = ImageView(this)
+        image.setBackgroundColor(Color.DKGRAY)
+        image.setImageBitmap(mask)
+        image.adjustViewBounds = true
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.segmentation_result)
+            .setView(image)
+            .setPositiveButton(R.string.close, null)
+            .show()
     }
 
     private fun showProcessed(bitmap: Bitmap) {
@@ -208,8 +294,11 @@ class MainActivity : ComponentActivity() {
             items.takeLast(30).joinToString("\n\n") { log ->
                 log.component + ": " + log.message + "\n" + (log.stackTrace ?: "")
             }
-        MaterialAlertDialogBuilder(this).setTitle(R.string.error_log).setMessage(message)
-            .setPositiveButton(R.string.close, null).show()
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.error_log)
+            .setMessage(message)
+            .setPositiveButton(R.string.close, null)
+            .show()
     }
 
     override fun onDestroy() {
