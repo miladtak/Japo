@@ -12,6 +12,8 @@
 - Text backup
 - Bundled ML Kit selfie/person segmentation on the current extracted frame
 - Interactive mask brush editor component
+- IoU-based multi-person tracking engine with stable IDs
+- Temporal alpha-mask smoothing engine
 - Local alpha-mask refinement component
 - Local RGB chroma-key processing on the current extracted frame
 - Real MP4 export through Media3 Transformer
