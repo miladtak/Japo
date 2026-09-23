@@ -1,0 +1,1 @@
+Bundled local model assets belong here. No cloud model download is required by the current application.
