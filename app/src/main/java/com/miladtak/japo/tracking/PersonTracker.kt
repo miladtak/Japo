@@ -7,7 +7,12 @@ import kotlin.math.min
 data class PersonDetection(
     val bounds: RectF,
     val confidence: Float = 1f
-)
+) {
+    init {
+        require(bounds.width() > 0f && bounds.height() > 0f) { "Detection bounds must be non-empty" }
+        require(confidence in 0f..1f) { "Confidence must be between 0 and 1" }
+    }
+}
 
 data class TrackedPerson(
     val id: Int,
@@ -29,9 +34,16 @@ class PersonTracker(
     private val tracks = mutableListOf<Track>()
     private var nextId = 1
 
+    init {
+        require(iouThreshold in 0f..1f)
+        require(maxMissingFrames >= 0)
+    }
+
     fun reset() {
-        tracks.clear()
-        nextId = 1
+        synchronized(this) {
+            tracks.clear()
+            nextId = 1
+        }
     }
 
     @Synchronized
@@ -49,11 +61,10 @@ class PersonTracker(
                     bestIndex = i
                 }
             }
-
             if (bestIndex >= 0 && bestIou >= iouThreshold) {
-                val detection = detections[bestIndex]
-                track.bounds = RectF(detection.bounds)
-                track.confidence = detection.confidence
+                val d = detections[bestIndex]
+                track.bounds = RectF(d.bounds)
+                track.confidence = d.confidence
                 track.missing = 0
                 used[bestIndex] = true
             } else {
@@ -65,13 +76,12 @@ class PersonTracker(
 
         for (i in detections.indices) {
             if (!used[i]) {
-                val detection = detections[i]
-                tracks.add(Track(nextId++, RectF(detection.bounds), detection.confidence, 0))
+                val d = detections[i]
+                tracks.add(Track(nextId++, RectF(d.bounds), d.confidence, 0))
             }
         }
 
-        return tracks
-            .sortedBy { it.id }
+        return tracks.sortedBy { it.id }
             .map { TrackedPerson(it.id, RectF(it.bounds), it.confidence) }
     }
 
