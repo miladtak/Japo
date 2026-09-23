@@ -1,5 +1,11 @@
 package com.miladtak.japo.segmentation
 
+import android.graphics.Bitmap
+
 interface PersonSegmenter {
-    suspend fun segment(frame: Any): Any
+    fun segment(
+        frame: Bitmap,
+        onSuccess: (Bitmap) -> Unit,
+        onFailure: (Exception) -> Unit
+    )
 }
