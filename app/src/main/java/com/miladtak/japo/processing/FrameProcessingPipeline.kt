@@ -7,6 +7,7 @@ import com.miladtak.japo.chroma.ChromaKeySettings
 import com.miladtak.japo.matting.BitmapMattingProcessor
 import com.miladtak.japo.matting.TemporalMaskSmoother
 import com.miladtak.japo.tracking.PersonTracker
+import com.miladtak.japo.tracking.PersonMaskDetector
 
 data class FrameProcessingConfig(
     val enablePersonMask: Boolean = false,
@@ -30,6 +31,7 @@ data class ProcessedFrame(
 class FrameProcessingPipeline(
     private val segmenter: suspend (Bitmap) -> Bitmap? = { null },
     private val tracker: PersonTracker = PersonTracker(),
+    private val maskDetector: PersonMaskDetector = PersonMaskDetector(),
     private val smoother: TemporalMaskSmoother = TemporalMaskSmoother(),
     private val chroma: ChromaKeyProcessor = ChromaKeyProcessor(),
     private val matting: BitmapMattingProcessor = BitmapMattingProcessor()
@@ -43,6 +45,8 @@ class FrameProcessingPipeline(
             alpha = segmenter(source)
             if (alpha != null) {
                 if (config.enableTemporalSmoothing) alpha = smoother.smooth(alpha)
+                val detections = maskDetector.detect(alpha)
+                trackedCount = tracker.update(detections).count { it.confidence > 0f }
                 current = matting.refine(source, alpha, config.edgeSoftness)
             }
         }
@@ -64,8 +68,7 @@ class FrameProcessingPipeline(
             )
         }
 
-        // Tracking remains a frame-level service until the video-frame decoder is connected.
-        tracker.update(emptyList())
+        if (!config.enablePersonMask) tracker.update(emptyList())
         return ProcessedFrame(current, alpha, trackedCount)
     }
 
