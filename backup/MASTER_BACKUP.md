@@ -1,7 +1,16 @@
 # Japo master backup
 
-Current main commit: a6edf5255057efc67afc5fe6aad5fee547397bd5
+Latest source is on branch main.
 
-The repository contains the current complete source tree. Phase status is tracked in docs/STATUS.md and docs/PHASES.md.
+Implemented baseline:
+- video import/capture
+- Media3 preview
+- local project/timeline/layer persistence
+- bundled person segmentation on extracted frames
+- mask editing/refinement components
+- chroma-key frame processing
+- Media3 Transformer MP4 trim/effects export
+- local error log and backups
 
-Rule: never mark an advanced feature complete until its real implementation is present and the Android build passes.
+The current implementation status is maintained in docs/STATUS.md.
+Advanced features remain explicitly marked incomplete until wired and tested.
