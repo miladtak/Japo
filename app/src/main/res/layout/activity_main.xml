@@ -5,6 +5,7 @@
     <androidx.media3.ui.PlayerView android:id="@+id/playerView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:keepScreenOn="true"/>
     <SeekBar android:id="@+id/seekBar" android:layout_width="match_parent" android:layout_height="wrap_content"/>
     <Button android:id="@+id/segmentButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/analyze_person"/>
+    <EditText android:id="@+id/chromaColor" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/chroma_color" android:text="#14CC14" android:inputType="text"/>
     <Button android:id="@+id/chromaButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/chroma_key"/>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
         <EditText android:id="@+id/startSeconds" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="@string/start_seconds" android:inputType="numberDecimal"/>
