@@ -9,6 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.effect.Brightness
 import androidx.media3.effect.Contrast
 import androidx.media3.effect.RgbFilter
+import androidx.media3.effect.HslAdjustment
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
@@ -24,7 +25,7 @@ data class ExportRequest(
     val filter: ExportFilter = ExportFilter.NONE
 )
 
-enum class ExportFilter { NONE, GRAYSCALE, INVERT, BRIGHT, CONTRAST }
+enum class ExportFilter { NONE, GRAYSCALE, INVERT, BRIGHT, CONTRAST, ANIME, PENCIL, INK, WATERCOLOR, COMIC, CARTOON, SKETCH, OIL, ILLUSTRATION }
 
 class VideoExportManager(private val context: Context) {
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -103,5 +104,14 @@ class VideoExportManager(private val context: Context) {
         ExportFilter.INVERT -> listOf(RgbFilter.createInvertedFilter())
         ExportFilter.BRIGHT -> listOf(Brightness(0.12f))
         ExportFilter.CONTRAST -> listOf(Contrast(0.25f))
+        ExportFilter.ANIME -> listOf(Contrast(0.15f), HslAdjustment.Builder().adjustSaturation(28f).adjustLightness(4f).build())
+        ExportFilter.PENCIL -> listOf(RgbFilter.createGrayscaleFilter(), Contrast(0.35f))
+        ExportFilter.INK -> listOf(RgbFilter.createGrayscaleFilter(), Contrast(0.55f), Brightness(0.03f))
+        ExportFilter.WATERCOLOR -> listOf(Brightness(0.08f), Contrast(-0.15f), HslAdjustment.Builder().adjustSaturation(-8f).build())
+        ExportFilter.COMIC -> listOf(Contrast(0.50f), HslAdjustment.Builder().adjustSaturation(22f).build())
+        ExportFilter.CARTOON -> listOf(Contrast(0.32f), HslAdjustment.Builder().adjustSaturation(35f).build())
+        ExportFilter.SKETCH -> listOf(RgbFilter.createGrayscaleFilter(), Contrast(0.65f))
+        ExportFilter.OIL -> listOf(Contrast(0.18f), HslAdjustment.Builder().adjustSaturation(20f).adjustLightness(2f).build())
+        ExportFilter.ILLUSTRATION -> listOf(Contrast(0.22f), HslAdjustment.Builder().adjustSaturation(12f).adjustLightness(3f).build())
     }
 }
