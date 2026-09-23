@@ -1,7 +1,7 @@
 # Build Status
 
 ## Phase 001
-Source implementation in progress.
+Source implementation is active and the foundation is functional.
 
 Implemented in this revision:
 - Android foundation
