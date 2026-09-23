@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Japo — استودیو ویدیو آفلاین</string>
+    <string name="status_ready">آماده؛ یک ویدیو را از حافظه انتخاب کنید.</string>
+    <string name="status_imported">ویدیو وارد شد.</string>
+    <string name="import_video">وارد کردن ویدیو</string>
+    <string name="play">پخش</string>
+    <string name="pause">مکث</string>
+    <string name="restart">شروع دوباره</string>
+    <string name="save_project">ذخیره پروژه</string>
+    <string name="error_log">گزارش خطا</string>
+    <string name="no_errors">خطایی ثبت نشده است.</string>
+    <string name="close">بستن</string>
+</resources>
