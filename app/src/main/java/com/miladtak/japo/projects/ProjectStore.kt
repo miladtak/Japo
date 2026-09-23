@@ -21,8 +21,10 @@ class ProjectStore(private val context: Context) {
                 project.clips.forEach { clip ->
                     put(JSONObject().apply {
                         put("id", clip.id)
+                        put("sourceUri", clip.sourceUri)
                         put("startMs", clip.startMs)
                         put("endMs", clip.endMs)
+                        put("order", clip.order)
                     })
                 }
             })
@@ -48,7 +50,7 @@ class ProjectStore(private val context: Context) {
             val clips = buildList {
                 for (i in 0 until clipsJson.length()) {
                     val c = clipsJson.getJSONObject(i)
-                    add(TimelineClip(c.getString("id"), c.getLong("startMs"), c.getLong("endMs")))
+                    add(TimelineClip(c.getString("id"), c.getString("sourceUri"), c.getLong("startMs"), c.getLong("endMs"), c.optInt("order", i)))
                 }
             }
             val layersJson = o.optJSONArray("layers") ?: JSONArray()
