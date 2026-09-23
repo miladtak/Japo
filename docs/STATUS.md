@@ -1,21 +1,36 @@
-# Build Status
+# Japo implementation status
 
-## Phase 001
-Source implementation is active and the foundation is functional.
+## Implemented and wired
+- Android project foundation
+- Local video import through Storage Access Framework
+- Persistent URI permission
+- Camera-app video capture and automatic import
+- Media3 video playback with seek controls
+- Local project persistence
+- Timeline clip and layer metadata persistence
+- Local error log
+- Text backup
+- Bundled ML Kit selfie/person segmentation on the current extracted frame
+- Interactive mask brush editor component
+- Local alpha-mask refinement component
+- Local RGB chroma-key processing on the current extracted frame
+- Real MP4 export through Media3 Transformer
+- Trim start/end controls
+- Grayscale, invert, brightness and contrast export effects
+- Local export progress/error handling
+- GitHub Actions debug APK build workflow
 
-Implemented in this revision:
-- Android foundation
-- local video picker
-- persistent read permission
-- Media3 playback
-- playback controls
-- local project persistence
-- local error log
+## Still under construction
+- Full-video segmentation/matting pipeline across every frame
+- Hair/finger-level dedicated matting model
+- True multi-person identity tracking and Person 1/2/3 workflows
+- Temporal consistency across exported frames
+- Chroma key controls UI and per-frame/full-video compositor integration
+- Background image/video replacement compositor
+- Transparent/alpha video export formats
+- Full manual mask editor workflow with undo/redo history and edge-refine tools
+- Dedicated timeline UI with clip splitting, ordering and layer controls
+- True Anime/Cartoon/Pencil/Ink/Watercolor/Oil neural stylization
+- Final optimization and device matrix testing
 
-Not yet complete:
-- AI segmentation/matting
-- chroma compositor
-- advanced effects
-- multi-person tracking
-- timeline editing
-- final export
+A feature is not marked complete merely because an interface exists; it is marked complete only after its real implementation is wired into the application.
