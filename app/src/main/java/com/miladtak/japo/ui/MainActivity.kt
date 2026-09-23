@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var endSeconds: EditText
     private lateinit var filterSpinner: Spinner
     private lateinit var exportButton: Button
+    private lateinit var chromaColor: EditText
     private val handler = Handler(Looper.getMainLooper())
 
     private var pendingCaptureUri: Uri? = null
@@ -91,6 +92,7 @@ class MainActivity : ComponentActivity() {
         endSeconds = findViewById(R.id.endSeconds)
         filterSpinner = findViewById(R.id.filterSpinner)
         exportButton = findViewById(R.id.exportButton)
+        chromaColor = findViewById(R.id.chromaColor)
 
         logs = ErrorLogStore(this)
         projects = ProjectStore(this)
@@ -280,7 +282,14 @@ class MainActivity : ComponentActivity() {
                 retriever.release()
                 if (frame == null) error("فریم فعلی قابل خواندن نیست.")
                 val processor = com.miladtak.japo.chroma.ChromaKeyProcessor()
-                val result = processor.removeKey(frame, 0.05f, 0.80f, 0.08f)
+                val parsed = runCatching { Color.parseColor(chromaColor.text.toString().trim()) }
+                    .getOrDefault(Color.rgb(20, 204, 20))
+                val result = processor.removeKey(
+                    frame,
+                    Color.red(parsed) / 255f,
+                    Color.green(parsed) / 255f,
+                    Color.blue(parsed) / 255f
+                )
                 runOnUiThread {
                     status.text = "حذف پرده سبز انجام شد."
                     showProcessed(result)
