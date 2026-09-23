@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.saveButton).setOnClickListener { saveCurrentProject() }
         findViewById<Button>(R.id.logButton).setOnClickListener { showErrorLog() }
         findViewById<Button>(R.id.segmentButton).setOnClickListener { segmentCurrentFrame() }
+        findViewById<Button>(R.id.chromaButton).setOnClickListener { chromaCurrentFrame() }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -137,6 +138,53 @@ class MainActivity : ComponentActivity() {
         image.adjustViewBounds = true
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.segmentation_result)
+            .setView(image)
+            .setPositiveButton(R.string.close, null)
+            .show()
+    }
+
+    private fun chromaCurrentFrame() {
+        val uri = decoder.currentUri()
+        if (uri == null) {
+            status.text = "ابتدا یک ویدیو وارد کنید."
+            return
+        }
+        status.text = "در حال حذف پرده سبز..."
+        Thread {
+            try {
+                val retriever = MediaMetadataRetriever()
+                retriever.setDataSource(this, uri)
+                val frame = retriever.getFrameAtTime(
+                    decoder.position() * 1000L,
+                    MediaMetadataRetriever.OPTION_CLOSEST
+                )
+                retriever.release()
+                if (frame == null) error("فریم فعلی قابل خواندن نیست.")
+                val processor = com.miladtak.japo.chroma.ChromaKeyProcessor()
+                val result = processor.removeKey(
+                    frame,
+                    keyR = 0.05f,
+                    keyG = 0.80f,
+                    keyB = 0.08f
+                )
+                runOnUiThread {
+                    status.text = "حذف پرده سبز انجام شد."
+                    showProcessed(result)
+                }
+            } catch (e: Exception) {
+                logs.add("chroma", "Chroma processing failed", e)
+                runOnUiThread { status.text = e.message ?: "Chroma processing failed" }
+            }
+        }.start()
+    }
+
+    private fun showProcessed(bitmap: Bitmap) {
+        val image = ImageView(this)
+        image.setBackgroundColor(Color.DKGRAY)
+        image.setImageBitmap(bitmap)
+        image.adjustViewBounds = true
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.chroma_result)
             .setView(image)
             .setPositiveButton(R.string.close, null)
             .show()
