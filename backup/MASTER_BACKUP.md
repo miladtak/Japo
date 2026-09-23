@@ -10,6 +10,7 @@ Implemented baseline:
 - mask editing/refinement components
 - chroma-key frame processing
 - Media3 Transformer MP4 trim/effects export
+- source-aware multi-clip timeline export backend
 - local error log and backups
 
 The current implementation status is maintained in docs/STATUS.md.
