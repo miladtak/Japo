@@ -19,8 +19,16 @@ data class FrameProcessingConfig(
     val chromaEdgeSoftness: Float = 0.08f,
     val spillSuppression: Float = 0.65f,
     val edgeSoftness: Float = 0.18f,
-    val enableTemporalSmoothing: Boolean = true
+    val enableTemporalSmoothing: Boolean = true,
+    val background: BackgroundMode = BackgroundMode.NONE,
+    val backgroundColor: Int = Color.TRANSPARENT,
+    val style: StyleMode = StyleMode.NONE,
+    val styleStrength: Float = 0.65f
 )
+
+enum class BackgroundMode { NONE, TRANSPARENT, COLOR, BLUR }
+
+enum class StyleMode { NONE, ANIME, PENCIL, INK, WATERCOLOR, COMIC, CARTOON, SKETCH, OIL, ILLUSTRATION }
 
 data class ProcessedFrame(
     val bitmap: Bitmap,
@@ -68,8 +76,67 @@ class FrameProcessingPipeline(
             )
         }
 
+        if (config.style != StyleMode.NONE) {
+            current = applyStyle(current, config.style, config.styleStrength)
+        }
+
+        current = when (config.background) {
+            BackgroundMode.NONE -> current
+            BackgroundMode.TRANSPARENT -> if (alpha != null) matting.refine(current, alpha, 0f) else current
+            BackgroundMode.COLOR -> if (alpha != null) {
+                com.miladtak.japo.matting.BackgroundReplacer().color(current, alpha, config.backgroundColor)
+            } else current
+            BackgroundMode.BLUR -> if (alpha != null) {
+                val blurred = com.miladtak.japo.matting.BackgroundReplacer().blurred(
+                    current, alpha, 18f
+                )
+                blurred
+            } else current
+        }
+
         if (!config.enablePersonMask) tracker.update(emptyList())
         return ProcessedFrame(current, alpha, trackedCount)
+    }
+
+    private fun applyStyle(source: Bitmap, style: StyleMode, strength: Float): Bitmap {
+        val amount = strength.coerceIn(0f, 1f)
+        val input = source.copy(Bitmap.Config.ARGB_8888, false)
+        val pixels = IntArray(input.width * input.height)
+        input.getPixels(pixels, 0, input.width, 0, 0, input.width, input.height)
+        for (i in pixels.indices) {
+            val c = pixels[i]
+            var r = Color.red(c)
+            var g = Color.green(c)
+            var b = Color.blue(c)
+            val gray = (0.299f * r + 0.587f * g + 0.114f * b).toInt()
+            when (style) {
+                StyleMode.PENCIL, StyleMode.INK, StyleMode.SKETCH -> {
+                    r = (gray + (r - gray) * (1f - amount)).toInt()
+                    g = (gray + (g - gray) * (1f - amount)).toInt()
+                    b = (gray + (b - gray) * (1f - amount)).toInt()
+                }
+                StyleMode.ANIME, StyleMode.CARTOON, StyleMode.COMIC -> {
+                    r = ((r / 32) * 32).coerceIn(0, 255)
+                    g = ((g / 32) * 32).coerceIn(0, 255)
+                    b = ((b / 32) * 32).coerceIn(0, 255)
+                }
+                StyleMode.WATERCOLOR -> {
+                    r = (r + gray) / 2
+                    g = (g + gray) / 2
+                    b = (b + gray) / 2
+                }
+                StyleMode.OIL, StyleMode.ILLUSTRATION -> {
+                    r = ((r * (1f + amount) + gray * amount) / (1f + 2f * amount)).toInt()
+                    g = ((g * (1f + amount) + gray * amount) / (1f + 2f * amount)).toInt()
+                    b = ((b * (1f + amount) + gray * amount) / (1f + 2f * amount)).toInt()
+                }
+                StyleMode.NONE -> Unit
+            }
+            pixels[i] = Color.argb(Color.alpha(c), r.coerceIn(0,255), g.coerceIn(0,255), b.coerceIn(0,255))
+        }
+        input.setPixels(pixels, 0, input.width, 0, 0, input.width, input.height)
+        return input
+    }
     }
 
     fun resetTemporalState() {
