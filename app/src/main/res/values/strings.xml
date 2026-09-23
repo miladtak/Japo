@@ -3,6 +3,8 @@
     <string name="status_ready">آماده؛ یک ویدیو را از حافظه انتخاب کنید.</string>
     <string name="status_imported">ویدیو وارد شد.</string>
     <string name="import_video">وارد کردن ویدیو</string>
+    <string name="capture_video">ضبط ویدیو</string>
+    <string name="capture_failed">ضبط ویدیو شروع نشد.</string>
     <string name="play">پخش</string>
     <string name="pause">مکث</string>
     <string name="restart">شروع دوباره</string>
