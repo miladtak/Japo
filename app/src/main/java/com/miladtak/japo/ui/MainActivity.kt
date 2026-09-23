@@ -213,9 +213,10 @@ class MainActivity : ComponentActivity() {
                     runOnUiThread { status.text = getString(R.string.exporting, percent) }
                 },
                 onComplete = { file ->
+                    val published = publishExport(file)
                     runOnUiThread {
                         exportButton.isEnabled = true
-                        status.text = getString(R.string.export_done, file.absolutePath)
+                        status.text = getString(R.string.export_done, published)
                     }
                 },
                 onError = { error ->
@@ -231,6 +232,28 @@ class MainActivity : ComponentActivity() {
             exportButton.isEnabled = true
             status.text = getString(R.string.export_failed, e.message ?: "unknown error")
         }
+    }
+
+    private fun publishExport(file: File): String {
+        if (android.os.Build.VERSION.SDK_INT < 29) return file.absolutePath
+        return runCatching {
+            val values = android.content.ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/Japo")
+                put(MediaStore.Video.Media.IS_PENDING, 1)
+            }
+            val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                ?: return file.absolutePath
+            contentResolver.openOutputStream(uri)?.use { output ->
+                file.inputStream().use { input -> input.copyTo(output) }
+            } ?: error("Cannot open gallery output stream.")
+            values.clear()
+            values.put(MediaStore.Video.Media.IS_PENDING, 0)
+            contentResolver.update(uri, values, null, null)
+            file.delete()
+            uri.toString()
+        }.getOrElse { file.absolutePath }
     }
 
     private fun parseSeconds(value: String): Long =
