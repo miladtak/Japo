@@ -4,7 +4,10 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class BitmapMattingProcessorTest {
     @Test fun preservesOpaqueSourceWithOpaqueMask() {
         val source = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
