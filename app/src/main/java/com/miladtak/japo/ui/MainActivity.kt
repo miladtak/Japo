@@ -27,6 +27,8 @@ import com.miladtak.japo.export.ExportFilter
 import com.miladtak.japo.export.ExportRequest
 import com.miladtak.japo.export.VideoExportManager
 import com.miladtak.japo.logging.ErrorLogStore
+import com.miladtak.japo.layers.Layer
+import com.miladtak.japo.timeline.TimelineClip
 import com.miladtak.japo.projects.ProjectStore
 import com.miladtak.japo.segmentation.MlKitPersonSegmenter
 import com.miladtak.japo.video.VideoProject
@@ -318,7 +320,8 @@ class MainActivity : ComponentActivity() {
         try {
             val uri = decoder.currentUri() ?: error("ابتدا یک ویدیو وارد کنید.")
             val id = UUID.randomUUID().toString()
-            projects.save(VideoProject(id, "Project " + id.take(8), uri.toString(), durationMs = decoder.duration()))
+            val duration = decoder.duration()
+            projects.save(VideoProject(id, "Project " + id.take(8), uri.toString(), durationMs = duration, clips = listOf(TimelineClip("clip-" + id.take(8), 0L, duration)), layers = listOf(Layer("video-" + id.take(8), "Video"))))
             status.text = "پروژه ذخیره شد."
         } catch (e: Exception) {
             logs.add("project", "Unable to save project", e)
