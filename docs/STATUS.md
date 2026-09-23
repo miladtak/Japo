@@ -15,6 +15,7 @@
 - Local alpha-mask refinement component
 - Local RGB chroma-key processing on the current extracted frame
 - Real MP4 export through Media3 Transformer
+- Source-aware timeline clip model and multi-clip concatenation export backend
 - Trim start/end controls
 - Grayscale, invert, brightness and contrast export effects
 - Local export progress/error handling
