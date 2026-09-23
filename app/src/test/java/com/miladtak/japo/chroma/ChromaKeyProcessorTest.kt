@@ -4,7 +4,10 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class ChromaKeyProcessorTest {
     @Test fun removesKeyColorAndKeepsDifferentColor() {
         val bitmap = Bitmap.createBitmap(2, 1, Bitmap.Config.ARGB_8888)
