@@ -10,6 +10,8 @@
     <string name="error_log">گزارش خطا</string>
     <string name="no_errors">خطایی ثبت نشده است.</string>
     <string name="analyze_person">تشخیص انسان در فریم فعلی</string>
+    <string name="chroma_key">حذف پرده سبز از فریم فعلی</string>
+    <string name="chroma_result">نتیجه حذف پرده سبز</string>
     <string name="segmentation_result">نتیجه تشخیص انسان</string>
     <string name="close">بستن</string>
 </resources>
