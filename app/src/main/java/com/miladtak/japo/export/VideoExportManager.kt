@@ -2,6 +2,8 @@ package com.miladtak.japo.export
 
 import android.content.Context
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.effect.Brightness
@@ -11,6 +13,7 @@ import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
+import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 
 data class ExportRequest(
@@ -41,18 +44,37 @@ class VideoExportManager(private val context: Context) {
             .setClippingConfiguration(clipping)
             .build()
 
-        val effects = filterEffects(request.filter)
         val edited = EditedMediaItem.Builder(mediaItem)
-            .setEffects(Effects(emptyList(), effects))
+            .setEffects(Effects(emptyList(), filterEffects(request.filter)))
             .build()
 
         request.output.parentFile?.mkdirs()
         if (request.output.exists()) request.output.delete()
 
+        val handler = Handler(Looper.getMainLooper())
+        var finished = false
         lateinit var transformer: Transformer
+
+        val poller = object : Runnable {
+            override fun run() {
+                if (finished) return
+                val holder = ProgressHolder()
+                val state = runCatching { transformer.getProgress(holder) }.getOrNull()
+                if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
+                    onProgress(holder.progress.coerceIn(0, 100))
+                }
+                handler.postDelayed(this, 300L)
+            }
+        }
+
         transformer = Transformer.Builder(context)
             .addListener(object : Transformer.Listener {
-                override fun onCompleted(composition: androidx.media3.transformer.Composition, result: ExportResult) {
+                override fun onCompleted(
+                    composition: androidx.media3.transformer.Composition,
+                    result: ExportResult
+                ) {
+                    finished = true
+                    handler.removeCallbacks(poller)
                     onProgress(100)
                     onComplete(request.output)
                 }
@@ -62,26 +84,15 @@ class VideoExportManager(private val context: Context) {
                     result: ExportResult,
                     exportException: ExportException
                 ) {
+                    finished = true
+                    handler.removeCallbacks(poller)
                     onError(exportException)
                 }
             })
             .build()
 
         transformer.start(edited, request.output.absolutePath)
-
-        val progressThread = Thread {
-            val holder = androidx.media3.transformer.ProgressHolder()
-            while (!Thread.currentThread().isInterrupted) {
-                val state = runCatching { transformer.getProgress(holder) }.getOrNull()
-                if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
-                    onProgress(holder.progress.coerceIn(0, 100))
-                } else if (state == Transformer.PROGRESS_STATE_NOT_STARTED) {
-                    break
-                }
-                Thread.sleep(300L)
-            }
-        }
-        progressThread.start()
+        handler.post(poller)
         return transformer
     }
 
