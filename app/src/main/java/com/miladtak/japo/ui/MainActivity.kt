@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.provider.MediaStore
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
@@ -47,8 +48,21 @@ class MainActivity : ComponentActivity() {
     private lateinit var exportButton: Button
     private val handler = Handler(Looper.getMainLooper())
 
+    private var pendingCaptureUri: Uri? = null
+
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importVideo(uri)
+    }
+
+    private val captureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val uri = pendingCaptureUri
+        if (result.resultCode == RESULT_OK && uri != null) {
+            importVideo(uri)
+        } else if (uri != null) {
+            contentResolver.delete(uri, null, null)
+            status.text = getString(R.string.capture_failed)
+        }
+        pendingCaptureUri = null
     }
 
     private val progressTask = object : Runnable {
@@ -89,6 +103,9 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.importButton).setOnClickListener {
             picker.launch(arrayOf("video/*"))
         }
+        findViewById<Button>(R.id.captureButton).setOnClickListener {
+            captureVideo()
+        }
         playButton.setOnClickListener {
             if (decoder.isPlaying()) {
                 decoder.pause()
@@ -125,6 +142,27 @@ class MainActivity : ComponentActivity() {
             logs.add("import", "Unable to import video", e)
             status.text = e.message ?: "Import failed"
         }
+    }
+
+    private fun captureVideo() {
+        val values = android.content.ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, "Japo_capture_" + System.currentTimeMillis() + ".mp4")
+            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/Japo")
+            }
+        }
+        pendingCaptureUri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+        val uri = pendingCaptureUri
+        if (uri == null) {
+            status.text = getString(R.string.capture_failed)
+            return
+        }
+        val intent = Intent(android.provider.MediaStore.ACTION_VIDEO_CAPTURE).apply {
+            putExtra(MediaStore.EXTRA_OUTPUT, uri)
+            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        captureLauncher.launch(intent)
     }
 
     private fun exportVideo() {
