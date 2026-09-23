@@ -13,6 +13,7 @@
     <string name="no_errors">خطایی ثبت نشده است.</string>
     <string name="analyze_person">تشخیص انسان در فریم فعلی</string>
     <string name="chroma_key">حذف پرده سبز از فریم فعلی</string>
+    <string name="chroma_color">رنگ پرده، مثلاً #14CC14</string>
     <string name="chroma_result">نتیجه حذف پرده سبز</string>
     <string name="start_seconds">شروع (ثانیه)</string>
     <string name="end_seconds">پایان (ثانیه)</string>
