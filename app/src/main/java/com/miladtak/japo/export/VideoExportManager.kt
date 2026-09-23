@@ -16,6 +16,7 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
+import androidx.media3.common.util.UnstableApi
 
 data class ExportRequest(
     val source: Uri,
@@ -28,7 +29,7 @@ data class ExportRequest(
 enum class ExportFilter { NONE, GRAYSCALE, INVERT, BRIGHT, CONTRAST, ANIME, PENCIL, INK, WATERCOLOR, COMIC, CARTOON, SKETCH, OIL, ILLUSTRATION }
 
 class VideoExportManager(private val context: Context) {
-    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    @OptIn(UnstableApi::class)
     fun export(
         request: ExportRequest,
         onProgress: (Int) -> Unit,
