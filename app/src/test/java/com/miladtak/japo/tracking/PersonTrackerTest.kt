@@ -25,4 +25,9 @@ class PersonTrackerTest {
         assertEquals(2, result.size)
         assertTrue(result[0].id != result[1].id)
     }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsEmptyDetectionBounds() {
+        PersonDetection(RectF(0f, 0f, 0f, 10f))
+    }
 }
