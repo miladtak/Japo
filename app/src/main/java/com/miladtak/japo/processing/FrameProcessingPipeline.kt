@@ -3,17 +3,20 @@ package com.miladtak.japo.processing
 import android.graphics.Bitmap
 import android.graphics.Color
 import com.miladtak.japo.chroma.ChromaKeyProcessor
+import com.miladtak.japo.chroma.ChromaKeySettings
 import com.miladtak.japo.matting.BitmapMattingProcessor
 import com.miladtak.japo.matting.TemporalMaskSmoother
-import com.miladtak.japo.tracking.PersonDetection
 import com.miladtak.japo.tracking.PersonTracker
 
 data class FrameProcessingConfig(
     val enablePersonMask: Boolean = false,
     val enableChromaKey: Boolean = false,
     val chromaColor: Int = Color.rgb(20, 204, 20),
+    val chromaSimilarity: Float = 0.42f,
     val chromaThreshold: Float = 0.28f,
-    val chromaSoftness: Float = 0.08f,
+    val chromaSmoothness: Float = 0.08f,
+    val chromaEdgeSoftness: Float = 0.08f,
+    val spillSuppression: Float = 0.65f,
     val edgeSoftness: Float = 0.18f,
     val enableTemporalSmoothing: Boolean = true
 )
@@ -21,7 +24,7 @@ data class FrameProcessingConfig(
 data class ProcessedFrame(
     val bitmap: Bitmap,
     val alphaMask: Bitmap?,
-    val trackedPersons: List<PersonDetection>
+    val trackedPersonCount: Int
 )
 
 class FrameProcessingPipeline(
@@ -31,20 +34,15 @@ class FrameProcessingPipeline(
     private val chroma: ChromaKeyProcessor = ChromaKeyProcessor(),
     private val matting: BitmapMattingProcessor = BitmapMattingProcessor()
 ) {
-    suspend fun process(
-        source: Bitmap,
-        config: FrameProcessingConfig
-    ): ProcessedFrame {
+    suspend fun process(source: Bitmap, config: FrameProcessingConfig): ProcessedFrame {
         var current = source.copy(Bitmap.Config.ARGB_8888, false)
         var alpha: Bitmap? = null
-        var detections = emptyList<PersonDetection>()
+        var trackedCount = 0
 
         if (config.enablePersonMask) {
             alpha = segmenter(source)
             if (alpha != null) {
-                if (config.enableTemporalSmoothing) {
-                    alpha = smoother.smooth(alpha)
-                }
+                if (config.enableTemporalSmoothing) alpha = smoother.smooth(alpha)
                 current = matting.refine(source, alpha, config.edgeSoftness)
             }
         }
@@ -56,12 +54,19 @@ class FrameProcessingPipeline(
                 Color.red(c) / 255f,
                 Color.green(c) / 255f,
                 Color.blue(c) / 255f,
-                config.chromaThreshold,
-                config.chromaSoftness
+                ChromaKeySettings(
+                    similarity = config.chromaSimilarity,
+                    threshold = config.chromaThreshold,
+                    smoothness = config.chromaSmoothness,
+                    edgeSoftness = config.chromaEdgeSoftness,
+                    spillSuppression = config.spillSuppression
+                )
             )
         }
 
-        return ProcessedFrame(current, alpha, detections)
+        // Tracking remains a frame-level service until the video-frame decoder is connected.
+        tracker.update(emptyList())
+        return ProcessedFrame(current, alpha, trackedCount)
     }
 
     fun resetTemporalState() {
