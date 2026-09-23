@@ -36,8 +36,12 @@ class ChromaKeyProcessor {
                 (b - keyB) * (b - keyB)
             ) / 1.7320508f
 
-            val killStart = (similarity * (1f - threshold)).coerceIn(0f, 1f)
-            val killEnd = min(1f, killStart + smoothness + edgeSoftness)
+            // Similarity is the radius around the picked key color. Threshold and
+            // smoothness control the transition instead of unexpectedly enlarging
+            // the keyed region and removing unrelated colors.
+            val killStart = similarity.coerceIn(0f, 1f)
+            val transition = max(0.001f, threshold * 0.5f + smoothness + edgeSoftness)
+            val killEnd = min(1f, killStart + transition)
             var alpha = ((distance - killStart) / max(0.001f, killEnd - killStart)).coerceIn(0f, 1f)
 
             val spill = (g - max(r, b)).coerceAtLeast(0f) *
