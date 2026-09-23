@@ -6,8 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TemporalMaskSmootherTest {
-    @Test
-    fun smoothingBlendsWithPreviousMask() {
+    @Test fun smoothingBlendsWithPreviousMask() {
         val first = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
         first.setPixel(0, 0, Color.argb(255, 255, 255, 255))
         val second = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
