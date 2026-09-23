@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
         decoder = Media3VideoDecoder(this)
         findViewById<PlayerView>(R.id.playerView).player = decoder.player()
 
-        val filterLabels = listOf("بدون فیلتر", "سیاه و سفید", "معکوس", "روشنایی", "کنتراست")
+        val filterLabels = listOf("بدون فیلتر", "سیاه و سفید", "معکوس", "روشنایی", "کنتراست", "Anime سبک", "Pencil سبک", "Ink سبک", "Watercolor سبک", "Comic سبک", "Cartoon سبک", "Sketch سبک", "Oil سبک", "Illustration سبک")
         filterSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, filterLabels)
 
         findViewById<Button>(R.id.importButton).setOnClickListener {
@@ -189,6 +189,15 @@ class MainActivity : ComponentActivity() {
             2 -> ExportFilter.INVERT
             3 -> ExportFilter.BRIGHT
             4 -> ExportFilter.CONTRAST
+            5 -> ExportFilter.ANIME
+            6 -> ExportFilter.PENCIL
+            7 -> ExportFilter.INK
+            8 -> ExportFilter.WATERCOLOR
+            9 -> ExportFilter.COMIC
+            10 -> ExportFilter.CARTOON
+            11 -> ExportFilter.SKETCH
+            12 -> ExportFilter.OIL
+            13 -> ExportFilter.ILLUSTRATION
             else -> ExportFilter.NONE
         }
 
