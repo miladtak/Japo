@@ -19,7 +19,8 @@ data class ProcessedVideoExportRequest(
     val endMs: Long? = null,
     val frameStepMs: Long = 33L,
     val config: FrameProcessingConfig = FrameProcessingConfig(),
-    val backgroundFrameProvider: BackgroundFrameProvider? = null
+    val backgroundFrameProvider: BackgroundFrameProvider? = null,
+    val backgroundVideo: Uri? = null
 )
 
 class ProcessedVideoExporter(
@@ -37,6 +38,7 @@ class ProcessedVideoExporter(
             val retriever = MediaMetadataRetriever()
             val encoder = BitmapH264Encoder()
             var first: Bitmap? = null
+            var ownedBackgroundProvider: BackgroundFrameProvider? = null
             try {
                 retriever.setDataSource(context, request.source)
                 val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
@@ -56,6 +58,10 @@ class ProcessedVideoExporter(
                 val fps = (1000f / request.frameStepMs.coerceAtLeast(1L)).roundToInt().coerceIn(1, 60)
                 encoder.start(request.output.absolutePath, width, height, fps)
                 pipeline.resetTemporalState()
+                val backgroundProvider = request.backgroundFrameProvider ?: request.backgroundVideo?.let {
+                    com.miladtak.japo.processing.MediaMetadataBackgroundFrameProvider.open(context, it)
+                }
+                ownedBackgroundProvider = if (request.backgroundFrameProvider == null) backgroundProvider else null
 
                 var timestamp = start
                 while (!cancelled.get() && timestamp < end) {
@@ -70,7 +76,7 @@ class ProcessedVideoExporter(
                     var resultAlpha: Bitmap? = null
                     try {
                         if (request.config.background == com.miladtak.japo.processing.BackgroundMode.VIDEO) {
-                            background = request.backgroundFrameProvider?.frameAt(timestamp)
+                            background = backgroundProvider?.frameAt(timestamp)
                                 ?: error("Background video frame unavailable at $timestamp ms")
                         }
                         val result = kotlinx.coroutines.runBlocking {
@@ -102,7 +108,7 @@ class ProcessedVideoExporter(
             } finally {
                 first?.let { if (!it.isRecycled) it.recycle() }
                 retriever.release()
-                request.backgroundFrameProvider?.release()
+                ownedBackgroundProvider?.release()
             }
         }.apply {
             name = "Japo-ProcessedVideoExporter"
