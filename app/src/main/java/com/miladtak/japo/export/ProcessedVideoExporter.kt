@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.miladtak.japo.encoder.BitmapH264Encoder
+import com.miladtak.japo.processing.BackgroundFrameProvider
 import com.miladtak.japo.processing.FrameProcessingConfig
 import com.miladtak.japo.processing.FrameProcessingPipeline
 import java.io.File
@@ -17,7 +18,8 @@ data class ProcessedVideoExportRequest(
     val startMs: Long = 0L,
     val endMs: Long? = null,
     val frameStepMs: Long = 33L,
-    val config: FrameProcessingConfig = FrameProcessingConfig()
+    val config: FrameProcessingConfig = FrameProcessingConfig(),
+    val backgroundFrameProvider: BackgroundFrameProvider? = null
 )
 
 class ProcessedVideoExporter(
@@ -37,35 +39,59 @@ class ProcessedVideoExporter(
             var first: Bitmap? = null
             try {
                 retriever.setDataSource(context, request.source)
-                val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
+                val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    ?.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
                 val start = request.startMs.coerceAtLeast(0L)
                 val end = (request.endMs ?: duration).coerceAtMost(duration)
                 require(end > start) { "Video range is empty." }
-                val decodedFirst = retriever.getFrameAtTime(start * 1000L, MediaMetadataRetriever.OPTION_CLOSEST) ?: error("Unable to decode first frame.")
+                val decodedFirst = retriever.getFrameAtTime(start * 1000L, MediaMetadataRetriever.OPTION_CLOSEST)
+                    ?: error("Unable to decode first frame.")
                 val width = decodedFirst.width and 1.inv()
                 val height = decodedFirst.height and 1.inv()
                 require(width >= 2 && height >= 2) { "Video dimensions are too small." }
-                first = if (decodedFirst.width == width && decodedFirst.height == height) decodedFirst else Bitmap.createBitmap(decodedFirst, 0, 0, width, height)
+                first = if (decodedFirst.width == width && decodedFirst.height == height) decodedFirst
+                else Bitmap.createBitmap(decodedFirst, 0, 0, width, height)
                 if (first !== decodedFirst) decodedFirst.recycle()
+
                 val fps = (1000f / request.frameStepMs.coerceAtLeast(1L)).roundToInt().coerceIn(1, 60)
                 encoder.start(request.output.absolutePath, width, height, fps)
                 pipeline.resetTemporalState()
+
                 var timestamp = start
-                var processed = 0L
                 while (!cancelled.get() && timestamp < end) {
-                    val decoded = if (timestamp == start) first!! else retriever.getFrameAtTime(timestamp * 1000L, MediaMetadataRetriever.OPTION_CLOSEST)
+                    val decoded = if (timestamp == start) first!!
+                    else retriever.getFrameAtTime(timestamp * 1000L, MediaMetadataRetriever.OPTION_CLOSEST)
                         ?: error("Unable to decode frame at $timestamp ms")
-                    val frame = if (decoded.width == width && decoded.height == height) decoded else Bitmap.createBitmap(decoded, 0, 0, width, height)
-                    val result = kotlinx.coroutines.runBlocking { pipeline.process(frame, request.config) }
-                    encoder.encode(result.bitmap, (timestamp - start) * 1000L)
-                    processed++
-                    onProgress((((timestamp - start).toDouble() / (end - start).toDouble()) * 100.0).toInt().coerceIn(0, 99))
-                    if (result.bitmap !== frame && !result.bitmap.isRecycled) result.bitmap.recycle()
-                    result.alphaMask?.let { if (!it.isRecycled) it.recycle() }
-                    if (frame !== decoded && !frame.isRecycled) frame.recycle()
-                    if (decoded !== first && !decoded.isRecycled) decoded.recycle()
+                    val frame = if (decoded.width == width && decoded.height == height) decoded
+                    else Bitmap.createScaledBitmap(decoded, width, height, true)
+
+                    var background: Bitmap? = null
+                    var resultBitmap: Bitmap? = null
+                    var resultAlpha: Bitmap? = null
+                    try {
+                        if (request.config.background == com.miladtak.japo.processing.BackgroundMode.VIDEO) {
+                            background = request.backgroundFrameProvider?.frameAt(timestamp)
+                                ?: error("Background video frame unavailable at $timestamp ms")
+                        }
+                        val result = kotlinx.coroutines.runBlocking {
+                            pipeline.process(frame, request.config, background)
+                        }
+                        resultBitmap = result.bitmap
+                        resultAlpha = result.alphaMask
+                        encoder.encode(result.bitmap, (timestamp - start) * 1000L)
+                    } finally {
+                        if (resultBitmap != null && resultBitmap !== frame && !resultBitmap.isRecycled) resultBitmap.recycle()
+                        if (resultAlpha != null && !resultAlpha.isRecycled) resultAlpha.recycle()
+                        if (background != null && !background.isRecycled) background.recycle()
+                        if (frame !== decoded && !frame.isRecycled) frame.recycle()
+                        if (decoded !== first && !decoded.isRecycled) decoded.recycle()
+                    }
+
+                    onProgress((((timestamp - start).toDouble() / (end - start).toDouble()) * 100.0)
+                        .toInt().coerceIn(0, 99))
                     timestamp += request.frameStepMs
                 }
+
                 require(!cancelled.get()) { "Export cancelled." }
                 encoder.stop()
                 onProgress(100)
@@ -76,7 +102,11 @@ class ProcessedVideoExporter(
             } finally {
                 first?.let { if (!it.isRecycled) it.recycle() }
                 retriever.release()
+                request.backgroundFrameProvider?.release()
             }
-        }.apply { name = "Japo-ProcessedVideoExporter"; start() }
+        }.apply {
+            name = "Japo-ProcessedVideoExporter"
+            start()
+        }
     }
 }
