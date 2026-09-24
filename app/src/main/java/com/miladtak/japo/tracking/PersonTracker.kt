@@ -49,7 +49,6 @@ class PersonTracker(
     @Synchronized
     fun update(detections: List<PersonDetection>): List<TrackedPerson> {
         val used = BooleanArray(detections.size)
-
         for (track in tracks) {
             var bestIndex = -1
             var bestIou = 0f
@@ -73,17 +72,26 @@ class PersonTracker(
         }
 
         tracks.removeAll { it.missing > maxMissingFrames }
-
         for (i in detections.indices) {
             if (!used[i]) {
                 val d = detections[i]
                 tracks.add(Track(nextId++, RectF(d.bounds), d.confidence, 0))
             }
         }
-
-        return tracks.sortedBy { it.id }
-            .map { TrackedPerson(it.id, RectF(it.bounds), it.confidence) }
+        return snapshotLocked()
     }
+
+    @Synchronized
+    fun trackedCount(minConfidence: Float = 0f): Int =
+        tracks.count { it.missing == 0 && it.confidence >= minConfidence }
+
+    @Synchronized
+    fun snapshot(): List<TrackedPerson> = snapshotLocked()
+
+    private fun snapshotLocked(): List<TrackedPerson> =
+        tracks.sortedBy { it.id }.map {
+            TrackedPerson(it.id, RectF(it.bounds), it.confidence)
+        }
 
     private fun iou(a: RectF, b: RectF): Float {
         val left = max(a.left, b.left)
