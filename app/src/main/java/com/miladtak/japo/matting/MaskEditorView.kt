@@ -21,6 +21,7 @@ class MaskEditorView(
     }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var originalMask = initialMask.copy(Bitmap.Config.ARGB_8888, true)
     private var mask = initialMask.copy(Bitmap.Config.ARGB_8888, true)
     private var mode = Mode.ADD
     private var radius = 36f
@@ -34,6 +35,11 @@ class MaskEditorView(
     fun setChangeListener(listener: ChangeListener?) { changeListener = listener }
 
     fun setRestoreMode() { mode = Mode.RESTORE }
+
+    fun setOriginalMask(newMask: Bitmap) {
+        originalMask.recycle()
+        originalMask = newMask.copy(Bitmap.Config.ARGB_8888, true)
+    }
 
     fun setMode(value: Mode) { mode = value }
 
@@ -52,6 +58,7 @@ class MaskEditorView(
         mask.recycle()
         mask = undoStack.removeLast()
         invalidate()
+        changeListener?.onMaskChanged(this)
     }
 
     fun redo() {
@@ -60,12 +67,15 @@ class MaskEditorView(
         mask.recycle()
         mask = redoStack.removeLast()
         invalidate()
+        changeListener?.onMaskChanged(this)
     }
 
     fun reset(newMask: Bitmap) {
         pushUndo()
         mask.recycle()
         mask = newMask.copy(Bitmap.Config.ARGB_8888, true)
+        originalMask.recycle()
+        originalMask = mask.copy(Bitmap.Config.ARGB_8888, true)
         redoStack.forEach { it.recycle() }
         redoStack.clear()
         invalidate()
@@ -215,7 +225,12 @@ class MaskEditorView(
                 val newAlpha = when (mode) {
                     Mode.ADD -> (oldAlpha + 255f * strength).toInt().coerceAtMost(255)
                     Mode.REMOVE -> (oldAlpha - 255f * strength).toInt().coerceAtLeast(0)
-                    Mode.RESTORE -> oldAlpha
+                    Mode.RESTORE -> {
+                        val originalPixels = IntArray(mask.width * mask.height)
+                        originalMask.getPixels(originalPixels, 0, mask.width, 0, 0, mask.width, mask.height)
+                        val originalAlpha = originalPixels[index] ushr 24
+                        (oldAlpha + (originalAlpha - oldAlpha) * strength).toInt().coerceIn(0, 255)
+                    }
                 }
                 pixels[index] = newAlpha shl 24 or 0x00FFFFFF
             }
