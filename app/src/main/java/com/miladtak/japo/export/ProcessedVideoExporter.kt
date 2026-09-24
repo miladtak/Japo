@@ -8,6 +8,7 @@ import com.miladtak.japo.encoder.BitmapH264Encoder
 import com.miladtak.japo.processing.BackgroundFrameProvider
 import com.miladtak.japo.processing.FrameProcessingConfig
 import com.miladtak.japo.processing.FrameProcessingPipeline
+import com.miladtak.japo.processing.MlKitSegmenterAdapter
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
@@ -25,7 +26,9 @@ data class ProcessedVideoExportRequest(
 
 class ProcessedVideoExporter(
     private val context: Context,
-    private val pipeline: FrameProcessingPipeline = FrameProcessingPipeline()
+    private val pipeline: FrameProcessingPipeline = FrameProcessingPipeline(
+        segmenter = { frame -> MlKitSegmenterAdapter().segment(frame) }
+    )
 ) {
     fun export(
         request: ProcessedVideoExportRequest,
