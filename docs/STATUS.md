@@ -14,7 +14,10 @@
 - IoU-based multi-person tracking engine with stable IDs
 - Temporal alpha-mask smoothing component with regression test
 - Local alpha-mask refinement component
-- Configurable reusable frame-processing pipeline combining segmentation, temporal smoothing, matting and chroma-key processing
+- Configurable reusable frame-processing pipeline combining segmentation, temporal smoothing, matting, chroma-key processing and manual-mask compositing
+- Timestamp-addressable background-video frame provider integrated with processed-video export
+- Manual mask restore and local edge-refinement operations
+- Local TensorFlow Lite image-mask inference runtime requiring a real bundled model asset
 - RGB chroma-key processing with similarity, threshold, smoothness, edge softness and spill suppression
 - Real MP4 export through Media3 Transformer with trim
 - Deterministic visual filters for grayscale/invert/brightness/contrast and stylized presets
@@ -26,7 +29,7 @@
 ## Still under construction
 - Connect the frame-processing pipeline to a streaming full-video decoder/encoder
 - Full-video segmentation/matting across every decoded frame
-- Dedicated hair/finger-level neural matting model bundled locally
+- Dedicated hair/finger-level neural matting model bundled locally and connected to the pipeline
 - True multi-person detection-to-mask tracking and Person 1/2/3 workflows
 - Temporal consistency across the complete exported video
 - Full chroma-key compositor and controls in the editing UI
