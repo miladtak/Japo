@@ -4,10 +4,11 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import com.miladtak.japo.chroma.ChromaKeyProcessor
 import com.miladtak.japo.chroma.ChromaKeySettings
+import com.miladtak.japo.matting.BackgroundReplacer
 import com.miladtak.japo.matting.BitmapMattingProcessor
 import com.miladtak.japo.matting.TemporalMaskSmoother
-import com.miladtak.japo.tracking.PersonTracker
 import com.miladtak.japo.tracking.PersonMaskDetector
+import com.miladtak.japo.tracking.PersonTracker
 
 data class FrameProcessingConfig(
     val enablePersonMask: Boolean = false,
@@ -22,13 +23,26 @@ data class FrameProcessingConfig(
     val enableTemporalSmoothing: Boolean = true,
     val background: BackgroundMode = BackgroundMode.NONE,
     val backgroundColor: Int = Color.TRANSPARENT,
+    val backgroundBitmap: Bitmap? = null,
     val style: StyleMode = StyleMode.NONE,
     val styleStrength: Float = 0.65f
-)
+) {
+    init {
+        require(chromaSimilarity in 0f..1f)
+        require(chromaThreshold in 0f..1f)
+        require(chromaSmoothness in 0f..1f)
+        require(chromaEdgeSoftness in 0f..1f)
+        require(spillSuppression in 0f..1f)
+        require(edgeSoftness in 0f..1f)
+        require(styleStrength in 0f..1f)
+    }
+}
 
-enum class BackgroundMode { NONE, TRANSPARENT, COLOR, BLUR }
+enum class BackgroundMode { NONE, TRANSPARENT, COLOR, IMAGE, BLUR }
 
-enum class StyleMode { NONE, ANIME, PENCIL, INK, WATERCOLOR, COMIC, CARTOON, SKETCH, OIL, ILLUSTRATION }
+enum class StyleMode {
+    NONE, ANIME, PENCIL, INK, WATERCOLOR, COMIC, CARTOON, SKETCH, OIL, ILLUSTRATION
+}
 
 data class ProcessedFrame(
     val bitmap: Bitmap,
@@ -42,105 +56,149 @@ class FrameProcessingPipeline(
     private val maskDetector: PersonMaskDetector = PersonMaskDetector(),
     private val smoother: TemporalMaskSmoother = TemporalMaskSmoother(),
     private val chroma: ChromaKeyProcessor = ChromaKeyProcessor(),
-    private val matting: BitmapMattingProcessor = BitmapMattingProcessor()
+    private val matting: BitmapMattingProcessor = BitmapMattingProcessor(),
+    private val backgrounds: BackgroundReplacer = BackgroundReplacer()
 ) {
     suspend fun process(source: Bitmap, config: FrameProcessingConfig): ProcessedFrame {
-        var current = source.copy(Bitmap.Config.ARGB_8888, false)
+        var current = source
+        var ownsCurrent = false
         var alpha: Bitmap? = null
-        var trackedCount = 0
 
-        if (config.enablePersonMask) {
-            alpha = segmenter(source)
+        try {
+            if (config.enablePersonMask) {
+                alpha = segmenter(source)
+                if (alpha != null) {
+                    if (config.enableTemporalSmoothing) alpha = smoother.smooth(alpha)
+                    val detections = maskDetector.detect(alpha)
+                    val tracks = tracker.update(detections)
+                    val refined = matting.refine(source, alpha, config.edgeSoftness)
+                    if (refined !== current) {
+                        if (ownsCurrent && !current.isRecycled) current.recycle()
+                        current = refined
+                        ownsCurrent = true
+                    }
+                    if (tracks.isNotEmpty()) {
+                        // Keep the count tied to actual tracked detections, not mask pixels.
+                    }
+                }
+            } else {
+                tracker.reset()
+                smoother.reset()
+            }
+
+            if (config.enableChromaKey) {
+                val c = config.chromaColor
+                val keyed = chroma.removeKey(
+                    current,
+                    Color.red(c) / 255f,
+                    Color.green(c) / 255f,
+                    Color.blue(c) / 255f,
+                    ChromaKeySettings(
+                        similarity = config.chromaSimilarity,
+                        threshold = config.chromaThreshold,
+                        smoothness = config.chromaSmoothness,
+                        edgeSoftness = config.chromaEdgeSoftness,
+                        spillSuppression = config.spillSuppression
+                    )
+                )
+                if (keyed !== current) {
+                    if (ownsCurrent && !current.isRecycled) current.recycle()
+                    current = keyed
+                    ownsCurrent = true
+                }
+            }
+
+            if (config.style != StyleMode.NONE) {
+                val styled = applyStyle(current, config.style, config.styleStrength)
+                if (styled !== current) {
+                    if (ownsCurrent && !current.isRecycled) current.recycle()
+                    current = styled
+                    ownsCurrent = true
+                }
+            }
+
             if (alpha != null) {
-                if (config.enableTemporalSmoothing) alpha = smoother.smooth(alpha)
-                val detections = maskDetector.detect(alpha)
-                trackedCount = tracker.update(detections).count { it.confidence > 0f }
-                current = matting.refine(source, alpha, config.edgeSoftness)
+                val composited = when (config.background) {
+                    BackgroundMode.NONE -> null
+                    BackgroundMode.TRANSPARENT -> matting.refine(current, alpha, 0f)
+                    BackgroundMode.COLOR -> backgrounds.color(current, alpha, config.backgroundColor)
+                    BackgroundMode.IMAGE -> config.backgroundBitmap?.let {
+                        backgrounds.image(current, alpha, it)
+                    }
+                    BackgroundMode.BLUR -> backgrounds.blurred(current, alpha, 18f)
+                }
+                if (composited != null && composited !== current) {
+                    if (ownsCurrent && !current.isRecycled) current.recycle()
+                    current = composited
+                    ownsCurrent = true
+                }
             }
-        }
 
-        if (config.enableChromaKey) {
-            val c = config.chromaColor
-            current = chroma.removeKey(
-                current,
-                Color.red(c) / 255f,
-                Color.green(c) / 255f,
-                Color.blue(c) / 255f,
-                ChromaKeySettings(
-                    similarity = config.chromaSimilarity,
-                    threshold = config.chromaThreshold,
-                    smoothness = config.chromaSmoothness,
-                    edgeSoftness = config.chromaEdgeSoftness,
-                    spillSuppression = config.spillSuppression
-                )
-            )
-        }
+            val trackedCount = if (config.enablePersonMask) {
+                tracker.trackedCount()
+            } else 0
 
-        if (config.style != StyleMode.NONE) {
-            current = applyStyle(current, config.style, config.styleStrength)
+            return ProcessedFrame(current, alpha, trackedCount)
+        } catch (t: Throwable) {
+            if (ownsCurrent && !current.isRecycled) current.recycle()
+            alpha?.let { if (!it.isRecycled) it.recycle() }
+            throw t
         }
-
-        current = when (config.background) {
-            BackgroundMode.NONE -> current
-            BackgroundMode.TRANSPARENT -> if (alpha != null) matting.refine(current, alpha, 0f) else current
-            BackgroundMode.COLOR -> if (alpha != null) {
-                com.miladtak.japo.matting.BackgroundReplacer().color(current, alpha, config.backgroundColor)
-            } else current
-            BackgroundMode.BLUR -> if (alpha != null) {
-                val blurred = com.miladtak.japo.matting.BackgroundReplacer().blurred(
-                    current, alpha, 18f
-                )
-                blurred
-            } else current
-        }
-
-        if (!config.enablePersonMask) tracker.update(emptyList())
-        return ProcessedFrame(current, alpha, trackedCount)
-    }
-
-    private fun applyStyle(source: Bitmap, style: StyleMode, strength: Float): Bitmap {
-        val amount = strength.coerceIn(0f, 1f)
-        val input = source.copy(Bitmap.Config.ARGB_8888, false)
-        val pixels = IntArray(input.width * input.height)
-        input.getPixels(pixels, 0, input.width, 0, 0, input.width, input.height)
-        for (i in pixels.indices) {
-            val c = pixels[i]
-            var r = Color.red(c)
-            var g = Color.green(c)
-            var b = Color.blue(c)
-            val gray = (0.299f * r + 0.587f * g + 0.114f * b).toInt()
-            when (style) {
-                StyleMode.PENCIL, StyleMode.INK, StyleMode.SKETCH -> {
-                    r = (gray + (r - gray) * (1f - amount)).toInt()
-                    g = (gray + (g - gray) * (1f - amount)).toInt()
-                    b = (gray + (b - gray) * (1f - amount)).toInt()
-                }
-                StyleMode.ANIME, StyleMode.CARTOON, StyleMode.COMIC -> {
-                    r = ((r / 32) * 32).coerceIn(0, 255)
-                    g = ((g / 32) * 32).coerceIn(0, 255)
-                    b = ((b / 32) * 32).coerceIn(0, 255)
-                }
-                StyleMode.WATERCOLOR -> {
-                    r = (r + gray) / 2
-                    g = (g + gray) / 2
-                    b = (b + gray) / 2
-                }
-                StyleMode.OIL, StyleMode.ILLUSTRATION -> {
-                    r = ((r * (1f + amount) + gray * amount) / (1f + 2f * amount)).toInt()
-                    g = ((g * (1f + amount) + gray * amount) / (1f + 2f * amount)).toInt()
-                    b = ((b * (1f + amount) + gray * amount) / (1f + 2f * amount)).toInt()
-                }
-                StyleMode.NONE -> Unit
-            }
-            pixels[i] = Color.argb(Color.alpha(c), r.coerceIn(0,255), g.coerceIn(0,255), b.coerceIn(0,255))
-        }
-        input.setPixels(pixels, 0, input.width, 0, 0, input.width, input.height)
-        return input
-    }
     }
 
     fun resetTemporalState() {
         smoother.reset()
         tracker.reset()
+    }
+
+    private fun applyStyle(source: Bitmap, style: StyleMode, strength: Float): Bitmap {
+        val amount = strength.coerceIn(0f, 1f)
+        val input = source.copy(Bitmap.Config.ARGB_8888, true)
+        val pixels = IntArray(input.width * input.height)
+        input.getPixels(pixels, 0, input.width, 0, 0, input.width, input.height)
+
+        for (i in pixels.indices) {
+            val c = pixels[i]
+            val r0 = Color.red(c)
+            val g0 = Color.green(c)
+            val b0 = Color.blue(c)
+            val gray = (0.299f * r0 + 0.587f * g0 + 0.114f * b0).toInt()
+            var r = r0
+            var g = g0
+            var b = b0
+
+            when (style) {
+                StyleMode.PENCIL, StyleMode.INK, StyleMode.SKETCH -> {
+                    r = (gray + (r0 - gray) * (1f - amount)).toInt()
+                    g = (gray + (g0 - gray) * (1f - amount)).toInt()
+                    b = (gray + (b0 - gray) * (1f - amount)).toInt()
+                }
+                StyleMode.ANIME, StyleMode.CARTOON, StyleMode.COMIC -> {
+                    val levels = if (amount < 0.5f) 48 else 32
+                    r = (r0 / levels) * levels
+                    g = (g0 / levels) * levels
+                    b = (b0 / levels) * levels
+                }
+                StyleMode.WATERCOLOR -> {
+                    r = ((r0 * (1f - amount)) + gray * amount).toInt()
+                    g = ((g0 * (1f - amount)) + gray * amount).toInt()
+                    b = ((b0 * (1f - amount)) + gray * amount).toInt()
+                }
+                StyleMode.OIL, StyleMode.ILLUSTRATION -> {
+                    r = ((r0 * (1f + amount) + gray * amount) / (1f + 2f * amount)).toInt()
+                    g = ((g0 * (1f + amount) + gray * amount) / (1f + 2f * amount)).toInt()
+                    b = ((b0 * (1f + amount) + gray * amount) / (1f + 2f * amount)).toInt()
+                }
+                StyleMode.NONE -> Unit
+            }
+            pixels[i] = Color.argb(
+                Color.alpha(c),
+                r.coerceIn(0, 255),
+                g.coerceIn(0, 255),
+                b.coerceIn(0, 255)
+            )
+        }
+        input.setPixels(pixels, 0, input.width, 0, 0, input.width, input.height)
+        return input
     }
 }
