@@ -172,7 +172,9 @@ class FrameProcessingPipeline(
         manual: Bitmap,
         mode: ManualMaskMode
     ): Bitmap {
-        if (detected == null || mode == ManualMaskMode.REPLACE) {
+        if (detected == null) return manual
+        if (mode == ManualMaskMode.REPLACE) {
+            if (!detected.isRecycled) detected.recycle()
             return manual
         }
         val out = Bitmap.createBitmap(manual.width, manual.height, Bitmap.Config.ARGB_8888)
