@@ -26,11 +26,6 @@ class BackgroundReplacer {
         return output
     }
 
-    /**
-     * Replaces non-person pixels with a box-blurred version of the original frame.
-     * The blur is separable: horizontal + vertical passes, so complexity is O(pixels * radius)
-     * instead of the previous O(pixels * radius^2) neighborhood.
-     */
     fun blurred(foreground: Bitmap, alphaMask: Bitmap, radius: Float): Bitmap {
         requireSameSize(foreground, alphaMask)
         val width = foreground.width
@@ -42,61 +37,106 @@ class BackgroundReplacer {
         alphaMask.getPixels(mask, 0, width, 0, 0, width, height)
 
         val r = radius.toInt().coerceIn(1, 32)
+        val blurred = boxBlur(src, width, height, r)
+        val outputPixels = IntArray(src.size)
+
+        for (i in src.indices) {
+            val original = src[i]
+            val background = blurred[i]
+            val a = (mask[i] ushr 24).coerceIn(0, 255)
+            val inv = 255 - a
+            outputPixels[i] = Color.argb(
+                255,
+                (Color.red(original) * a + Color.red(background) * inv) / 255,
+                (Color.green(original) * a + Color.green(background) * inv) / 255,
+                (Color.blue(original) * a + Color.blue(background) * inv) / 255
+            )
+        }
+
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        output.setPixels(outputPixels, 0, width, 0, 0, width, height)
+        source.recycle()
+        return output
+    }
+
+    private fun boxBlur(src: IntArray, width: Int, height: Int, radius: Int): IntArray {
         val horizontal = IntArray(src.size)
-        val blurred = IntArray(src.size)
+        val output = IntArray(src.size)
+        val window = radius * 2 + 1
 
         for (y in 0 until height) {
-            var sr = 0L
-            var sg = 0L
-            var sb = 0L
-            var count = 0
-            for (x in 0 until width) {
-                val addX = (x + r).coerceAtMost(width - 1)
-                val removeX = (x - r - 1).coerceAtLeast(0)
-                val add = src[y * width + addX]
-                val remove = src[y * width + removeX]
-                sr += Color.red(add) - Color.red(remove)
-                sg += Color.green(add) - Color.green(remove)
-                sb += Color.blue(add) - Color.blue(remove)
-                count = (count + 1).coerceAtMost(2 * r + 1)
-                horizontal[y * width + x] = Color.rgb(
-                    (sr / max(1, count)).toInt(),
-                    (sg / max(1, count)).toInt(),
-                    (sb / max(1, count)).toInt()
-                )
+            var sumR = 0L
+            var sumG = 0L
+            var sumB = 0L
+            var sumA = 0L
+            var previousLeft = 0
+            var previousRight = 0
+            for (x in 0 until width + radius) {
+                val addX = x.coerceAtMost(width - 1)
+                val removeX = (x - window).coerceAtLeast(0)
+                if (x < width + radius) {
+                    val add = src[y * width + addX]
+                    sumR += Color.red(add)
+                    sumG += Color.green(add)
+                    sumB += Color.blue(add)
+                    sumA += Color.alpha(add)
+                }
+                if (x >= window) {
+                    val remove = src[y * width + removeX]
+                    sumR -= Color.red(remove)
+                    sumG -= Color.green(remove)
+                    sumB -= Color.blue(remove)
+                    sumA -= Color.alpha(remove)
+                }
+                if (x >= radius) {
+                    val outX = x - radius
+                    if (outX < width) {
+                        val count = max(1, minOf(window, outX + radius + 1, width + radius - outX))
+                        horizontal[y * width + outX] = Color.argb(
+                            (sumA / count).toInt(),
+                            (sumR / count).toInt(),
+                            (sumG / count).toInt(),
+                            (sumB / count).toInt()
+                        )
+                    }
+                }
             }
         }
 
         for (x in 0 until width) {
-            var sr = 0L
-            var sg = 0L
-            var sb = 0L
-            var count = 0
-            for (y in 0 until height) {
-                val addY = (y + r).coerceAtMost(height - 1)
-                val removeY = (y - r - 1).coerceAtLeast(0)
+            var sumR = 0L
+            var sumG = 0L
+            var sumB = 0L
+            var sumA = 0L
+            for (y in 0 until height + radius) {
+                val addY = y.coerceAtMost(height - 1)
+                val removeY = (y - window).coerceAtLeast(0)
                 val add = horizontal[addY * width + x]
-                val remove = horizontal[removeY * width + x]
-                sr += Color.red(add) - Color.red(remove)
-                sg += Color.green(add) - Color.green(remove)
-                sb += Color.blue(add) - Color.blue(remove)
-                count = (count + 1).coerceAtMost(2 * r + 1)
-                val i = y * width + x
-                val original = src[i]
-                val a = (mask[i] ushr 24).coerceIn(0, 255)
-                val inv = 255 - a
-                blurred[i] = Color.argb(
-                    255,
-                    (Color.red(original) * a + Color.red(add) * inv / max(1, count)) / 255,
-                    (Color.green(original) * a + Color.green(add) * inv / max(1, count)) / 255,
-                    (Color.blue(original) * a + Color.blue(add) * inv / max(1, count)) / 255
-                )
+                sumR += Color.red(add)
+                sumG += Color.green(add)
+                sumB += Color.blue(add)
+                sumA += Color.alpha(add)
+                if (y >= window) {
+                    val remove = horizontal[removeY * width + x]
+                    sumR -= Color.red(remove)
+                    sumG -= Color.green(remove)
+                    sumB -= Color.blue(remove)
+                    sumA -= Color.alpha(remove)
+                }
+                if (y >= radius) {
+                    val outY = y - radius
+                    if (outY < height) {
+                        val count = max(1, minOf(window, outY + radius + 1, height + radius - outY))
+                        output[outY * width + x] = Color.argb(
+                            (sumA / count).toInt(),
+                            (sumR / count).toInt(),
+                            (sumG / count).toInt(),
+                            (sumB / count).toInt()
+                        )
+                    }
+                }
             }
         }
-
-        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        output.setPixels(blurred, 0, width, 0, 0, width, height)
-        source.recycle()
         return output
     }
 
