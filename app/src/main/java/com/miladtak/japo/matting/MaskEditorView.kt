@@ -14,7 +14,11 @@ class MaskEditorView(
     context: android.content.Context,
     initialMask: Bitmap
 ) : View(context) {
-    enum class Mode { ADD, REMOVE }
+    enum class Mode { ADD, REMOVE, RESTORE }
+
+    interface ChangeListener {
+        fun onMaskChanged(view: MaskEditorView)
+    }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var mask = initialMask.copy(Bitmap.Config.ARGB_8888, true)
@@ -25,6 +29,11 @@ class MaskEditorView(
     private val undoStack = ArrayDeque<Bitmap>()
     private val redoStack = ArrayDeque<Bitmap>()
     private var gestureChanged = false
+    private var changeListener: ChangeListener? = null
+
+    fun setChangeListener(listener: ChangeListener?) { changeListener = listener }
+
+    fun setRestoreMode() { mode = Mode.RESTORE }
 
     fun setMode(value: Mode) { mode = value }
 
@@ -62,6 +71,37 @@ class MaskEditorView(
         invalidate()
     }
 
+    fun edgeRefine(radiusPx: Int = 1) {
+        val radius = radiusPx.coerceIn(1, 6)
+        pushUndo()
+        val output = Bitmap.createBitmap(mask.width, mask.height, Bitmap.Config.ARGB_8888)
+        val src = IntArray(mask.width * mask.height)
+        val dst = IntArray(src.size)
+        mask.getPixels(src, 0, mask.width, 0, 0, mask.width, mask.height)
+        for (y in 0 until mask.height) {
+            for (x in 0 until mask.width) {
+                var minA = 255
+                var maxA = 0
+                for (dy in -radius..radius) for (dx in -radius..radius) {
+                    val xx = x + dx
+                    val yy = y + dy
+                    if (xx !in 0 until mask.width || yy !in 0 until mask.height) continue
+                    val a = src[yy * mask.width + xx] ushr 24
+                    minA = min(minA, a)
+                    maxA = max(maxA, a)
+                }
+                val center = src[y * mask.width + x] ushr 24
+                val refined = if (center < 16) 0 else if (center > 239) 255 else ((minA + maxA) / 2)
+                dst[y * mask.width + x] = refined shl 24 or 0x00FFFFFF
+            }
+        }
+        output.setPixels(dst, 0, mask.width, 0, 0, mask.width, mask.height)
+        mask.recycle()
+        mask = output
+        invalidate()
+        changeListener?.onMaskChanged(this)
+    }
+
     fun feather(radiusPx: Int = 2) {
         val radius = radiusPx.coerceIn(1, 12)
         pushUndo()
@@ -91,6 +131,7 @@ class MaskEditorView(
         mask.recycle()
         mask = output
         invalidate()
+        changeListener?.onMaskChanged(this)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -171,10 +212,10 @@ class MaskEditorView(
                 val strength = 1f - distance / r
                 val index = y * mask.width + x
                 val oldAlpha = pixels[index] ushr 24
-                val newAlpha = if (mode == Mode.ADD) {
-                    (oldAlpha + 255f * strength).toInt().coerceAtMost(255)
-                } else {
-                    (oldAlpha - 255f * strength).toInt().coerceAtLeast(0)
+                val newAlpha = when (mode) {
+                    Mode.ADD -> (oldAlpha + 255f * strength).toInt().coerceAtMost(255)
+                    Mode.REMOVE -> (oldAlpha - 255f * strength).toInt().coerceAtLeast(0)
+                    Mode.RESTORE -> oldAlpha
                 }
                 pixels[index] = newAlpha shl 24 or 0x00FFFFFF
             }
