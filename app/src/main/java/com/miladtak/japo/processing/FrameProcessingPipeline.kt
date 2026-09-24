@@ -23,9 +23,10 @@ data class FrameProcessingConfig(
     val enableTemporalSmoothing: Boolean = true,
     val background: BackgroundMode = BackgroundMode.NONE,
     val backgroundColor: Int = Color.TRANSPARENT,
-    val backgroundBitmap: Bitmap? = null,
     val style: StyleMode = StyleMode.NONE,
-    val styleStrength: Float = 0.65f
+    val styleStrength: Float = 0.65f,
+    val manualMask: Bitmap? = null,
+    val manualMaskMode: ManualMaskMode = ManualMaskMode.REPLACE
 ) {
     init {
         require(chromaSimilarity in 0f..1f)
@@ -38,7 +39,9 @@ data class FrameProcessingConfig(
     }
 }
 
-enum class BackgroundMode { NONE, TRANSPARENT, COLOR, IMAGE, BLUR }
+enum class BackgroundMode { NONE, TRANSPARENT, COLOR, IMAGE, BLUR, VIDEO }
+
+enum class ManualMaskMode { REPLACE, INTERSECT, UNION }
 
 enum class StyleMode {
     NONE, ANIME, PENCIL, INK, WATERCOLOR, COMIC, CARTOON, SKETCH, OIL, ILLUSTRATION
@@ -59,7 +62,11 @@ class FrameProcessingPipeline(
     private val matting: BitmapMattingProcessor = BitmapMattingProcessor(),
     private val backgrounds: BackgroundReplacer = BackgroundReplacer()
 ) {
-    suspend fun process(source: Bitmap, config: FrameProcessingConfig): ProcessedFrame {
+    suspend fun process(
+        source: Bitmap,
+        config: FrameProcessingConfig,
+        backgroundBitmap: Bitmap? = null
+    ): ProcessedFrame {
         var current = source
         var ownsCurrent = false
         var alpha: Bitmap? = null
@@ -70,20 +77,22 @@ class FrameProcessingPipeline(
                 if (alpha != null) {
                     if (config.enableTemporalSmoothing) alpha = smoother.smooth(alpha)
                     val detections = maskDetector.detect(alpha)
-                    val tracks = tracker.update(detections)
+                    tracker.update(detections)
                     val refined = matting.refine(source, alpha, config.edgeSoftness)
                     if (refined !== current) {
                         if (ownsCurrent && !current.isRecycled) current.recycle()
                         current = refined
                         ownsCurrent = true
                     }
-                    if (tracks.isNotEmpty()) {
-                        // Keep the count tied to actual tracked detections, not mask pixels.
-                    }
                 }
             } else {
                 tracker.reset()
                 smoother.reset()
+            }
+
+            if (config.manualMask != null) {
+                val manual = normalizeMask(config.manualMask, source.width, source.height)
+                alpha = combineMasks(alpha, manual, config.manualMaskMode)
             }
 
             if (config.enableChromaKey) {
@@ -122,7 +131,7 @@ class FrameProcessingPipeline(
                     BackgroundMode.NONE -> null
                     BackgroundMode.TRANSPARENT -> matting.refine(current, alpha, 0f)
                     BackgroundMode.COLOR -> backgrounds.color(current, alpha, config.backgroundColor)
-                    BackgroundMode.IMAGE -> config.backgroundBitmap?.let {
+                    BackgroundMode.IMAGE, BackgroundMode.VIDEO -> backgroundBitmap?.let {
                         backgrounds.image(current, alpha, it)
                     }
                     BackgroundMode.BLUR -> backgrounds.blurred(current, alpha, 18f)
@@ -134,11 +143,11 @@ class FrameProcessingPipeline(
                 }
             }
 
-            val trackedCount = if (config.enablePersonMask) {
-                tracker.trackedCount()
-            } else 0
-
-            return ProcessedFrame(current, alpha, trackedCount)
+            return ProcessedFrame(
+                bitmap = current,
+                alphaMask = alpha,
+                trackedPersonCount = if (config.enablePersonMask) tracker.trackedCount() else 0
+            )
         } catch (t: Throwable) {
             if (ownsCurrent && !current.isRecycled) current.recycle()
             alpha?.let { if (!it.isRecycled) it.recycle() }
@@ -151,12 +160,47 @@ class FrameProcessingPipeline(
         tracker.reset()
     }
 
+    private fun normalizeMask(mask: Bitmap, width: Int, height: Int): Bitmap {
+        if (mask.width == width && mask.height == height) {
+            return mask.copy(Bitmap.Config.ARGB_8888, true)
+        }
+        return Bitmap.createScaledBitmap(mask, width, height, true)
+    }
+
+    private fun combineMasks(
+        detected: Bitmap?,
+        manual: Bitmap,
+        mode: ManualMaskMode
+    ): Bitmap {
+        if (detected == null || mode == ManualMaskMode.REPLACE) {
+            return manual
+        }
+        val out = Bitmap.createBitmap(manual.width, manual.height, Bitmap.Config.ARGB_8888)
+        val a = IntArray(manual.width * manual.height)
+        val b = IntArray(a.size)
+        val o = IntArray(a.size)
+        manual.getPixels(a, 0, manual.width, 0, 0, manual.width, manual.height)
+        detected.getPixels(b, 0, detected.width, 0, 0, detected.width, detected.height)
+        for (i in o.indices) {
+            val ma = a[i] ushr 24
+            val da = b[i] ushr 24
+            val alpha = when (mode) {
+                ManualMaskMode.REPLACE -> ma
+                ManualMaskMode.INTERSECT -> minOf(ma, da)
+                ManualMaskMode.UNION -> maxOf(ma, da)
+            }
+            o[i] = Color.argb(alpha, 255, 255, 255)
+        }
+        out.setPixels(o, 0, out.width, 0, 0, out.width, out.height)
+        detected.recycle()
+        return out
+    }
+
     private fun applyStyle(source: Bitmap, style: StyleMode, strength: Float): Bitmap {
         val amount = strength.coerceIn(0f, 1f)
         val input = source.copy(Bitmap.Config.ARGB_8888, true)
         val pixels = IntArray(input.width * input.height)
         input.getPixels(pixels, 0, input.width, 0, 0, input.width, input.height)
-
         for (i in pixels.indices) {
             val c = pixels[i]
             val r0 = Color.red(c)
@@ -166,7 +210,6 @@ class FrameProcessingPipeline(
             var r = r0
             var g = g0
             var b = b0
-
             when (style) {
                 StyleMode.PENCIL, StyleMode.INK, StyleMode.SKETCH -> {
                     r = (gray + (r0 - gray) * (1f - amount)).toInt()
@@ -180,9 +223,9 @@ class FrameProcessingPipeline(
                     b = (b0 / levels) * levels
                 }
                 StyleMode.WATERCOLOR -> {
-                    r = ((r0 * (1f - amount)) + gray * amount).toInt()
-                    g = ((g0 * (1f - amount)) + gray * amount).toInt()
-                    b = ((b0 * (1f - amount)) + gray * amount).toInt()
+                    r = (r0 * (1f - amount) + gray * amount).toInt()
+                    g = (g0 * (1f - amount) + gray * amount).toInt()
+                    b = (b0 * (1f - amount) + gray * amount).toInt()
                 }
                 StyleMode.OIL, StyleMode.ILLUSTRATION -> {
                     r = ((r0 * (1f + amount) + gray * amount) / (1f + 2f * amount)).toInt()
