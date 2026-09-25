@@ -1,26 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp">
-    <TextView android:id="@+id/titleText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/app_name" android:textSize="24sp" android:textStyle="bold"/>
-    <TextView android:id="@+id/statusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="4dp" android:paddingBottom="8dp" android:text="@string/status_ready"/>
-    <androidx.media3.ui.PlayerView android:id="@+id/playerView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:keepScreenOn="true"/>
-    <SeekBar android:id="@+id/seekBar" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-    <Button android:id="@+id/segmentButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/analyze_person"/>
-    <EditText android:id="@+id/chromaColor" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/chroma_color" android:text="#14CC14" android:inputType="text"/>
-    <Button android:id="@+id/chromaButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/chroma_key"/>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <EditText android:id="@+id/startSeconds" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="@string/start_seconds" android:inputType="numberDecimal"/>
-        <EditText android:id="@+id/endSeconds" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="@string/end_seconds" android:inputType="numberDecimal"/>
-    </LinearLayout>
-    <Spinner android:id="@+id/filterSpinner" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-    <Button android:id="@+id/exportButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/export_mp4"/>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:orientation="horizontal">
-        <Button android:id="@+id/importButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/import_video"/>
-        <Button android:id="@+id/captureButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/capture_video"/>
-        <Button android:id="@+id/playButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/play"/>
-        <Button android:id="@+id/restartButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/restart"/>
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:orientation="horizontal">
-        <Button android:id="@+id/saveButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/save_project"/>
-        <Button android:id="@+id/logButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/error_log"/>
-    </LinearLayout>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
+<TextView android:id="@+id/titleText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/app_name" android:textSize="24sp" android:textStyle="bold"/>
+<TextView android:id="@+id/statusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="4dp" android:paddingBottom="8dp" android:text="@string/status_ready"/>
+<androidx.media3.ui.PlayerView android:id="@+id/playerView" android:layout_width="match_parent" android:layout_height="280dp" android:keepScreenOn="true"/>
+<SeekBar android:id="@+id/seekBar" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<TextView android:id="@+id/timelineText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/timeline_empty" android:padding="8dp"/>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+<Button android:id="@+id/undoButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/undo"/>
+<Button android:id="@+id/redoButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/redo"/>
 </LinearLayout>
+<Button android:id="@+id/segmentButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/analyze_person"/>
+<EditText android:id="@+id/chromaColor" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/chroma_color" android:text="#14CC14" android:inputType="text"/>
+<Button android:id="@+id/chromaButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/chroma_key"/>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+<EditText android:id="@+id/startSeconds" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="@string/start_seconds" android:inputType="numberDecimal"/>
+<EditText android:id="@+id/endSeconds" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="@string/end_seconds" android:inputType="numberDecimal"/>
+</LinearLayout>
+<Spinner android:id="@+id/filterSpinner" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/exportButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/export_mp4"/>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:orientation="horizontal">
+<Button android:id="@+id/importButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/import_video"/>
+<Button android:id="@+id/captureButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/capture_video"/>
+<Button android:id="@+id/playButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/play"/>
+<Button android:id="@+id/restartButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/restart"/>
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:orientation="horizontal">
+<Button android:id="@+id/saveButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/save_project"/>
+<Button android:id="@+id/logButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/error_log"/>
+</LinearLayout>
+</LinearLayout>
+</ScrollView>
