@@ -36,8 +36,8 @@
 - Background image/video/blur replacement through the complete export pipeline
 - Transparent/alpha video export where the selected codec/container supports it
 - Full manual mask editing workflow integrated with project/timeline state
-- Full timeline UI with visible tracks, drag/reorder/split/delete and trim interaction
-- Full layer UI integrated with project state
+- Advanced timeline interactions (drag/reorder/split/delete/trim) still pending; current UI now exposes timeline state plus undo/redo
+- Full layer UI integrated with project state still pending
 - True local neural Anime/Cartoon/Pencil/Ink/Watercolor/Oil/Illustration models
 - Streaming/chunked memory management for long/high-resolution videos
 - Device testing on Poco X3 Pro / Android 11 and final regression pass
