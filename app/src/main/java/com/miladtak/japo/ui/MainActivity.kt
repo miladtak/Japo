@@ -33,6 +33,7 @@ import com.miladtak.japo.processing.StyleMode
 import com.miladtak.japo.logging.ErrorLogStore
 import com.miladtak.japo.layers.Layer
 import com.miladtak.japo.timeline.TimelineClip
+import com.miladtak.japo.timeline.TimelineController
 import com.miladtak.japo.projects.ProjectStore
 import com.miladtak.japo.segmentation.MlKitPersonSegmenter
 import com.miladtak.japo.video.VideoProject
@@ -54,6 +55,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var filterSpinner: Spinner
     private lateinit var exportButton: Button
     private lateinit var chromaColor: EditText
+    private lateinit var timelineText: TextView
+    private lateinit var timelineController: TimelineController
     private val handler = Handler(Looper.getMainLooper())
 
     private var pendingCaptureUri: Uri? = null
@@ -98,6 +101,8 @@ class MainActivity : ComponentActivity() {
         filterSpinner = findViewById(R.id.filterSpinner)
         exportButton = findViewById(R.id.exportButton)
         chromaColor = findViewById(R.id.chromaColor)
+        timelineText = findViewById(R.id.timelineText)
+        timelineController = TimelineController()
 
         logs = ErrorLogStore(this)
         projects = ProjectStore(this)
@@ -127,6 +132,8 @@ class MainActivity : ComponentActivity() {
         }
         findViewById<Button>(R.id.restartButton).setOnClickListener { decoder.restart() }
         findViewById<Button>(R.id.saveButton).setOnClickListener { saveCurrentProject() }
+        findViewById<Button>(R.id.undoButton).setOnClickListener { if (timelineController.undo()) refreshTimeline() }
+        findViewById<Button>(R.id.redoButton).setOnClickListener { if (timelineController.redo()) refreshTimeline() }
         findViewById<Button>(R.id.logButton).setOnClickListener { showErrorLog() }
         findViewById<Button>(R.id.segmentButton).setOnClickListener { segmentCurrentFrame() }
         findViewById<Button>(R.id.chromaButton).setOnClickListener { chromaCurrentFrame() }
@@ -146,6 +153,11 @@ class MainActivity : ComponentActivity() {
         try {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             decoder.attach(uri)
+            val duration = decoder.duration()
+            if (duration > 0L) {
+                timelineController.add(TimelineClip(UUID.randomUUID().toString(), uri.toString(), 0L, duration))
+                refreshTimeline()
+            }
             status.text = getString(R.string.status_imported)
             playButton.setText(R.string.play)
         } catch (e: Exception) {
@@ -407,6 +419,13 @@ class MainActivity : ComponentActivity() {
             .setView(image)
             .setPositiveButton(R.string.close, null)
             .show()
+    }
+
+    private fun refreshTimeline() {
+        val clips = timelineController.snapshot()
+        timelineText.text = if (clips.isEmpty()) getString(R.string.timeline_empty) else clips.joinToString("\n") { clip ->
+            "#" + (clip.order + 1) + "  " + clip.id.take(8) + "  " + clip.startMs + "ms → " + clip.endMs + "ms"
+        }
     }
 
     private fun saveCurrentProject() {
