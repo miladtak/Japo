@@ -23,4 +23,7 @@
     <string name="export_failed">خطای خروجی: %1$s</string>
     <string name="segmentation_result">نتیجه تشخیص انسان</string>
     <string name="close">بستن</string>
+    <string name="timeline_empty">تایم‌لاین: هنوز کلیپی اضافه نشده است.</string>
+    <string name="undo">واگرد</string>
+    <string name="redo">ازنو</string>
 </resources>
