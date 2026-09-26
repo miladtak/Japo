@@ -10,6 +10,23 @@
 <Button android:id="@+id/undoButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/undo"/>
 <Button android:id="@+id/redoButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/redo"/>
 </LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+<Button android:id="@+id/moveClipLeftButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/move_left"/>
+<Button android:id="@+id/splitClipButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/split_clip"/>
+<Button android:id="@+id/moveClipRightButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/move_right"/>
+<Button android:id="@+id/deleteClipButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/delete_clip"/>
+</LinearLayout>
+<TextView android:id="@+id/layersText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/layers_empty" android:padding="8dp"/>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+<Button android:id="@+id/addLayerButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/add_layer"/>
+<Button android:id="@+id/removeLayerButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/remove_layer"/>
+<Button android:id="@+id/toggleLayerButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/toggle_layer"/>
+<Button android:id="@+id/layerOpacityButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/layer_opacity"/>
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+<Button android:id="@+id/layerUpButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/layer_up"/>
+<Button android:id="@+id/layerDownButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/layer_down"/>
+</LinearLayout>
 <Button android:id="@+id/segmentButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/analyze_person"/>
 <EditText android:id="@+id/chromaColor" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/chroma_color" android:text="#14CC14" android:inputType="text"/>
 <Button android:id="@+id/chromaButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/chroma_key"/>
