@@ -22,7 +22,8 @@ data class ProcessedVideoExportRequest(
     val frameStepMs: Long = 33L,
     val config: FrameProcessingConfig = FrameProcessingConfig(),
     val backgroundFrameProvider: BackgroundFrameProvider? = null,
-    val backgroundVideo: Uri? = null
+    val backgroundVideo: Uri? = null,
+    val cancel: (() -> Boolean)? = null
 )
 
 class ProcessedVideoExporter(
@@ -70,7 +71,7 @@ class ProcessedVideoExporter(
                 ownedBackgroundProvider = if (request.backgroundFrameProvider == null) backgroundProvider else null
 
                 var timestamp = start
-                while (!cancelled.get() && timestamp < end) {
+                while (!cancelled.get() && request.cancel?.invoke() != true && timestamp < end) {
                     val decoded = if (timestamp == start) first!!
                     else retriever.getFrameAtTime(timestamp * 1000L, MediaMetadataRetriever.OPTION_CLOSEST)
                         ?: error("Unable to decode frame at $timestamp ms")
@@ -104,7 +105,7 @@ class ProcessedVideoExporter(
                     timestamp += request.frameStepMs
                 }
 
-                require(!cancelled.get()) { "Export cancelled." }
+                require(!cancelled.get() && request.cancel?.invoke() != true) { "Export cancelled." }
                 encoder.stop()
                 onProgress(100)
                 onComplete(request.output)
