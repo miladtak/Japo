@@ -26,7 +26,8 @@ data class FrameProcessingConfig(
     val style: StyleMode = StyleMode.NONE,
     val styleStrength: Float = 0.65f,
     val manualMask: Bitmap? = null,
-    val manualMaskMode: ManualMaskMode = ManualMaskMode.REPLACE
+    val manualMaskMode: ManualMaskMode = ManualMaskMode.REPLACE,
+    val backgroundImagePath: String? = null
 ) {
     init {
         require(chromaSimilarity in 0f..1f)
