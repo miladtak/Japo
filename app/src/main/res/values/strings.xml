@@ -26,4 +26,16 @@
     <string name="timeline_empty">تایم‌لاین: هنوز کلیپی اضافه نشده است.</string>
     <string name="undo">واگرد</string>
     <string name="redo">ازنو</string>
+    <string name="move_left">کلیپ قبلی</string>
+    <string name="split_clip">تقسیم کلیپ</string>
+    <string name="move_right">کلیپ بعدی</string>
+    <string name="delete_clip">حذف کلیپ</string>
+    <string name="layers_empty">لایه‌ای وجود ندارد.</string>
+    <string name="add_layer">افزودن لایه</string>
+    <string name="remove_layer">حذف لایه</string>
+    <string name="toggle_layer">نمایش/مخفی</string>
+    <string name="layer_opacity">شفافیت لایه</string>
+    <string name="layer_up">لایه بالاتر</string>
+    <string name="layer_down">لایه پایین‌تر</string>
+    <string name="apply">اعمال</string>
 </resources>
