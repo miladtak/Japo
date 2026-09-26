@@ -43,3 +43,12 @@
 - Device testing on Poco X3 Pro / Android 11 and final regression pass (intentionally deferred until all source implementation is complete)
 
 A feature is not marked complete merely because an interface exists; it is marked complete only after its real implementation is wired into the application and validated.
+
+
+### Latest implementation pass
+- Added LayerController transactional history and UI integration.
+- Added timeline split/reorder/delete controls.
+- Added project listing and reopen flow.
+- Integrated the current-frame mask editor into the segmentation action.
+- Added cooperative cancellation to processed-video export.
+- Processing/export remains source-only until the planned final validation pass.
