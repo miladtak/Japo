@@ -38,4 +38,11 @@
     <string name="layer_up">لایه بالاتر</string>
     <string name="layer_down">لایه پایین‌تر</string>
     <string name="apply">اعمال</string>
+    <string name="mask_editor">ویرایش ماسک</string>
+    <string name="mask_undo">واگرد</string>
+    <string name="save_mask">ذخیره ماسک</string>
+    <string name="mask_saved">ماسک ویرایش‌شده ذخیره شد.</string>
+    <string name="load_project">بارگذاری پروژه</string>
+    <string name="no_projects">پروژه ذخیره‌شده‌ای وجود ندارد.</string>
+    <string name="project_loaded">پروژه بارگذاری شد.</string>
 </resources>
