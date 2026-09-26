@@ -42,6 +42,9 @@ class ProjectStore(private val context: Context) {
         prefs.edit().putString(project.id, json.toString()).apply()
     }
 
+    fun list(): List<VideoProject> =
+        prefs.all.keys.mapNotNull { load(it) }.sortedByDescending { it.createdAt }
+
     fun load(id: String): VideoProject? {
         val raw = prefs.getString(id, null) ?: return null
         return runCatching {
