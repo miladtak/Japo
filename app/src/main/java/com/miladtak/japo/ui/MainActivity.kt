@@ -32,6 +32,7 @@ import com.miladtak.japo.processing.FrameProcessingConfig
 import com.miladtak.japo.processing.StyleMode
 import com.miladtak.japo.logging.ErrorLogStore
 import com.miladtak.japo.layers.Layer
+import com.miladtak.japo.layers.LayerController
 import com.miladtak.japo.timeline.TimelineClip
 import com.miladtak.japo.timeline.TimelineController
 import com.miladtak.japo.projects.ProjectStore
@@ -57,9 +58,12 @@ class MainActivity : ComponentActivity() {
     private lateinit var chromaColor: EditText
     private lateinit var timelineText: TextView
     private lateinit var timelineController: TimelineController
+    private lateinit var layerController: LayerController
     private val handler = Handler(Looper.getMainLooper())
 
     private var pendingCaptureUri: Uri? = null
+    private var selectedClipId: String? = null
+    private var selectedLayerId: String? = null
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importVideo(uri)
@@ -103,6 +107,7 @@ class MainActivity : ComponentActivity() {
         chromaColor = findViewById(R.id.chromaColor)
         timelineText = findViewById(R.id.timelineText)
         timelineController = TimelineController()
+        layerController = LayerController()
 
         logs = ErrorLogStore(this)
         projects = ProjectStore(this)
@@ -134,6 +139,16 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.saveButton).setOnClickListener { saveCurrentProject() }
         findViewById<Button>(R.id.undoButton).setOnClickListener { if (timelineController.undo()) refreshTimeline() }
         findViewById<Button>(R.id.redoButton).setOnClickListener { if (timelineController.redo()) refreshTimeline() }
+        findViewById<Button>(R.id.deleteClipButton).setOnClickListener { selectedClipId?.let { id -> if (timelineController.remove(id)) { selectedClipId = timelineController.snapshot().firstOrNull()?.id; refreshTimeline() } } }
+        findViewById<Button>(R.id.splitClipButton).setOnClickListener { splitSelectedClip() }
+        findViewById<Button>(R.id.moveClipLeftButton).setOnClickListener { moveSelectedClip(-1) }
+        findViewById<Button>(R.id.moveClipRightButton).setOnClickListener { moveSelectedClip(1) }
+        findViewById<Button>(R.id.addLayerButton).setOnClickListener { addLayer() }
+        findViewById<Button>(R.id.removeLayerButton).setOnClickListener { selectedLayerId?.let { id -> if (layerController.remove(id)) { selectedLayerId = layerController.snapshot().firstOrNull()?.id; refreshLayers() } } }
+        findViewById<Button>(R.id.toggleLayerButton).setOnClickListener { selectedLayerId?.let { id -> layerController.snapshot().firstOrNull { it.id == id }?.let { layerController.setVisible(id, !it.visible); refreshLayers() } } }
+        findViewById<Button>(R.id.layerOpacityButton).setOnClickListener { setSelectedLayerOpacity() }
+        findViewById<Button>(R.id.layerUpButton).setOnClickListener { moveSelectedLayer(-1) }
+        findViewById<Button>(R.id.layerDownButton).setOnClickListener { moveSelectedLayer(1) }
         findViewById<Button>(R.id.logButton).setOnClickListener { showErrorLog() }
         findViewById<Button>(R.id.segmentButton).setOnClickListener { segmentCurrentFrame() }
         findViewById<Button>(R.id.chromaButton).setOnClickListener { chromaCurrentFrame() }
@@ -155,8 +170,13 @@ class MainActivity : ComponentActivity() {
             decoder.attach(uri)
             val duration = decoder.duration()
             if (duration > 0L) {
-                timelineController.add(TimelineClip(UUID.randomUUID().toString(), uri.toString(), 0L, duration))
+                val clip = TimelineClip(UUID.randomUUID().toString(), uri.toString(), 0L, duration)
+                timelineController.add(clip)
+                selectedClipId = clip.id
+                layerController.add(Layer("video-" + clip.id.take(8), "Video"))
+                selectedLayerId = layerController.snapshot().lastOrNull()?.id
                 refreshTimeline()
+                refreshLayers()
             }
             status.text = getString(R.string.status_imported)
             playButton.setText(R.string.play)
@@ -421,6 +441,76 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
+    private fun splitSelectedClip() {
+        val id = selectedClipId ?: return
+        val clip = timelineController.snapshot().firstOrNull { it.id == id } ?: return
+        val at = decoder.position()
+        if (at <= clip.startMs || at >= clip.endMs) {
+            status.text = "مکان پخش باید داخل کلیپ انتخاب‌شده باشد."
+            return
+        }
+        val parts = runCatching { timelineController.split(id, at) }.getOrElse {
+            logs.add("timeline", "Unable to split clip", it)
+            emptyList()
+        }
+        if (parts.isNotEmpty()) {
+            selectedClipId = parts.first().id
+            refreshTimeline()
+        }
+    }
+
+    private fun moveSelectedClip(delta: Int) {
+        val id = selectedClipId ?: return
+        val clips = timelineController.snapshot()
+        val current = clips.indexOfFirst { it.id == id }
+        if (current >= 0 && timelineController.move(id, current + delta)) refreshTimeline()
+    }
+
+    private fun refreshLayers() {
+        val layers = layerController.snapshot()
+        findViewById<TextView>(R.id.layersText).text =
+            if (layers.isEmpty()) getString(R.string.layers_empty) else layers.mapIndexed { index, layer ->
+                val marker = if (layer.id == selectedLayerId) "▶ " else ""
+                marker + "#" + (index + 1) + " " + layer.name + " " +
+                    (if (layer.visible) "✓" else "×") + " " +
+                    (layer.opacity * 100f).toInt() + "%"
+            }.joinToString("\n")
+    }
+
+    private fun addLayer() {
+        val id = "layer-" + UUID.randomUUID().toString().take(8)
+        layerController.add(Layer(id, "Layer " + (layerController.snapshot().size + 1)))
+        selectedLayerId = id
+        refreshLayers()
+    }
+
+    private fun setSelectedLayerOpacity() {
+        val id = selectedLayerId ?: return
+        val current = layerController.snapshot().firstOrNull { it.id == id }?.opacity ?: return
+        val input = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText((current * 100f).toInt().toString())
+            hint = "0 تا 100"
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.layer_opacity)
+            .setView(input)
+            .setNegativeButton(R.string.close, null)
+            .setPositiveButton(R.string.apply) { _, _ ->
+                val percent = input.text.toString().toFloatOrNull()?.coerceIn(0f, 100f) ?: return@setPositiveButton
+                layerController.setOpacity(id, percent / 100f)
+                refreshLayers()
+            }
+            .show()
+    }
+
+    private fun moveSelectedLayer(delta: Int) {
+        val id = selectedLayerId ?: return
+        val layers = layerController.snapshot()
+        val current = layers.indexOfFirst { it.id == id }
+        if (current >= 0 && layerController.move(id, current + delta)) refreshLayers()
+    }
+
     private fun refreshTimeline() {
         val clips = timelineController.snapshot()
         timelineText.text = if (clips.isEmpty()) getString(R.string.timeline_empty) else clips.joinToString("\n") { clip ->
@@ -433,7 +523,7 @@ class MainActivity : ComponentActivity() {
             val uri = decoder.currentUri() ?: error("ابتدا یک ویدیو وارد کنید.")
             val id = UUID.randomUUID().toString()
             val duration = decoder.duration()
-            projects.save(VideoProject(id, "Project " + id.take(8), uri.toString(), durationMs = duration, clips = listOf(TimelineClip("clip-" + id.take(8), uri.toString(), 0L, duration, 0)), layers = listOf(Layer("video-" + id.take(8), "Video"))))
+            projects.save(VideoProject(id, "Project " + id.take(8), uri.toString(), durationMs = duration, clips = timelineController.snapshot(), layers = layerController.snapshot()))
             status.text = "پروژه ذخیره شد."
         } catch (e: Exception) {
             logs.add("project", "Unable to save project", e)
