@@ -10,20 +10,20 @@
 - Timeline clip and layer metadata persistence
 - Local error log and text backup
 - ML Kit person/selfie segmentation for extracted frames
-- Interactive mask brush editor component with undo/redo/reset/feather controls
+- Interactive mask brush editor integrated into the current-frame workflow with add/remove/restore, undo/redo and edge refinement
 - IoU-based multi-person tracking engine with stable IDs
 - Temporal alpha-mask smoothing component with regression test
 - Local alpha-mask refinement component
 - Configurable reusable frame-processing pipeline combining segmentation, temporal smoothing, matting, chroma-key processing and manual-mask compositing
 - Timestamp-addressable background-video frame provider integrated with processed-video export
 - Manual mask restore and local edge-refinement operations
-- Local TensorFlow Lite image-mask inference runtime requiring a real bundled model asset
+- Local TensorFlow Lite image-mask inference runtime with explicit model-asset validation; no neural matting model is claimed as bundled until the real model asset is added
 - RGB chroma-key processing with similarity, threshold, smoothness, edge softness and spill suppression
 - Real MP4 export through Media3 Transformer with trim
 - Deterministic visual filters for grayscale/invert/brightness/contrast and stylized presets
 - Timeline clip model and multi-clip concatenation export backend
 - Local export progress/error handling
-- Source validation workflow: Kotlin compilation, unit tests and Android lint
+- Source validation workflow is defined, but validation is intentionally deferred until implementation reaches 100% per the current development policy
 - No APK is produced by CI
 
 ## Still under construction
@@ -36,10 +36,10 @@
 - Background image/video/blur replacement through the complete export pipeline
 - Transparent/alpha video export where the selected codec/container supports it
 - Full manual mask editing workflow integrated with project/timeline state
-- Advanced timeline interactions (drag/reorder/split/delete/trim) still pending; current UI now exposes timeline state plus undo/redo
-- Full layer UI integrated with project state still pending
+- Timeline editing controls now include reorder, split and delete plus undo/redo; touch drag editing remains pending
+- Layer UI is integrated with project state, including add/remove/visibility/opacity/reorder and controller history
 - True local neural Anime/Cartoon/Pencil/Ink/Watercolor/Oil/Illustration models
 - Streaming/chunked memory management for long/high-resolution videos
-- Device testing on Poco X3 Pro / Android 11 and final regression pass
+- Device testing on Poco X3 Pro / Android 11 and final regression pass (intentionally deferred until all source implementation is complete)
 
 A feature is not marked complete merely because an interface exists; it is marked complete only after its real implementation is wired into the application and validated.
