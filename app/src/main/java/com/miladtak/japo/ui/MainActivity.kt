@@ -33,6 +33,7 @@ import com.miladtak.japo.processing.StyleMode
 import com.miladtak.japo.logging.ErrorLogStore
 import com.miladtak.japo.layers.Layer
 import com.miladtak.japo.layers.LayerController
+import com.miladtak.japo.matting.MaskEditorView
 import com.miladtak.japo.timeline.TimelineClip
 import com.miladtak.japo.timeline.TimelineController
 import com.miladtak.japo.projects.ProjectStore
@@ -64,6 +65,7 @@ class MainActivity : ComponentActivity() {
     private var pendingCaptureUri: Uri? = null
     private var selectedClipId: String? = null
     private var selectedLayerId: String? = null
+    private var currentManualMask: Bitmap? = null
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importVideo(uri)
@@ -151,6 +153,7 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.layerDownButton).setOnClickListener { moveSelectedLayer(1) }
         findViewById<Button>(R.id.logButton).setOnClickListener { showErrorLog() }
         findViewById<Button>(R.id.segmentButton).setOnClickListener { segmentCurrentFrame() }
+        findViewById<Button>(R.id.loadProjectButton).setOnClickListener { loadProjectDialog() }
         findViewById<Button>(R.id.chromaButton).setOnClickListener { chromaCurrentFrame() }
         exportButton.setOnClickListener { exportVideo() }
 
@@ -418,15 +421,49 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showMask(mask: Bitmap) {
-        val image = ImageView(this)
-        image.setBackgroundColor(Color.DKGRAY)
-        image.setImageBitmap(mask)
-        image.adjustViewBounds = true
+        val editor = MaskEditorView(this, mask)
+        editor.setBrushRadius(36f)
         MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.segmentation_result)
-            .setView(image)
-            .setPositiveButton(R.string.close, null)
+            .setTitle(R.string.mask_editor)
+            .setView(editor)
+            .setNegativeButton(R.string.close, null)
+            .setNeutralButton(R.string.mask_undo) { _, _ -> editor.undo() }
+            .setPositiveButton(R.string.save_mask) { _, _ ->
+                currentManualMask?.recycle()
+                currentManualMask = editor.bitmap()
+                status.text = getString(R.string.mask_saved)
+            }
             .show()
+    }
+
+    private fun loadProjectDialog() {
+        val projectsList = projects.list()
+        if (projectsList.isEmpty()) {
+            status.text = getString(R.string.no_projects)
+            return
+        }
+        val labels = projectsList.map { it.name + " — " + it.id.take(8) }.toTypedArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.load_project)
+            .setItems(labels) { _, which ->
+                runCatching { restoreProject(projectsList[which]) }
+                    .onFailure { logs.add("project", "Unable to load project", it); status.text = it.message ?: "Load failed" }
+            }
+            .setNegativeButton(R.string.close, null)
+            .show()
+    }
+
+    private fun restoreProject(project: VideoProject) {
+        val source = project.sourceUri?.let(Uri::parse) ?: project.clips.firstOrNull()?.sourceUri?.let(Uri::parse)
+        if (source == null) error("پروژه منبع ویدیو ندارد.")
+        decoder.attach(source)
+        timelineController = TimelineController(project.clips)
+        layerController = LayerController(project.layers)
+        selectedClipId = project.clips.firstOrNull()?.id
+        selectedLayerId = project.layers.firstOrNull()?.id
+        refreshTimeline()
+        refreshLayers()
+        status.text = getString(R.string.project_loaded)
     }
 
     private fun showProcessed(bitmap: Bitmap) {
@@ -546,6 +583,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         handler.removeCallbacks(progressTask)
+        currentManualMask?.let { if (!it.isRecycled) it.recycle() }
         decoder.release()
         super.onDestroy()
     }
