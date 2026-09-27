@@ -396,8 +396,21 @@ class MainActivity : ComponentActivity() {
 
     private fun loadBackgroundImage(uri: Uri?): Bitmap? {
         if (uri == null) return null
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use {
+            android.graphics.BitmapFactory.decodeStream(it, null, bounds)
+        }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sample = 1
+        while (bounds.outWidth / sample > 1920 || bounds.outHeight / sample > 1920) {
+            sample *= 2
+        }
+        val options = android.graphics.BitmapFactory.Options().apply {
+            inSampleSize = sample
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
         return contentResolver.openInputStream(uri)?.use { input ->
-            android.graphics.BitmapFactory.decodeStream(input)
+            android.graphics.BitmapFactory.decodeStream(input, null, options)
         }
     }
 
