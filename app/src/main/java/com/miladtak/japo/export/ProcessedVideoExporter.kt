@@ -85,12 +85,14 @@ class ProcessedVideoExporter(
                     else Bitmap.createScaledBitmap(decoded, width, height, true)
 
                     var background: Bitmap? = null
+                    var backgroundOwned = false
                     var resultBitmap: Bitmap? = null
                     var resultAlpha: Bitmap? = null
                     try {
                         if (request.config.background == com.miladtak.japo.processing.BackgroundMode.VIDEO) {
                             background = backgroundProvider?.frameAt(timestamp)
                                 ?: error("Background video frame unavailable at $timestamp ms")
+                            backgroundOwned = true
                         } else if (request.config.background == com.miladtak.japo.processing.BackgroundMode.IMAGE) {
                             background = backgroundImage
                         }
@@ -103,7 +105,7 @@ class ProcessedVideoExporter(
                     } finally {
                         if (resultBitmap != null && resultBitmap !== frame && !resultBitmap.isRecycled) resultBitmap.recycle()
                         if (resultAlpha != null && !resultAlpha.isRecycled) resultAlpha.recycle()
-                        if (background != null && !background.isRecycled) background.recycle()
+                        if (backgroundOwned && background != null && !background.isRecycled) background.recycle()
                         if (frame !== decoded && !frame.isRecycled) frame.recycle()
                         if (decoded !== first && !decoded.isRecycled) decoded.recycle()
                     }
