@@ -52,3 +52,12 @@ A feature is not marked complete merely because an interface exists; it is marke
 - Integrated the current-frame mask editor into the segmentation action.
 - Added cooperative cancellation to processed-video export.
 - Processing/export remains source-only until the planned final validation pass.
+
+
+### Latest source implementation pass — 2026-09-27
+- Processed-video export now accepts a persistent background image bitmap in addition to timestamped background video frames.
+- Background image decoding is bounded to a maximum dimension of 1920px to reduce memory pressure on mobile devices.
+- Main export UI now exposes full-video person segmentation, chroma-key processing, manual-mask use, and background modes (none/color/blur/image/video).
+- Chroma-key alpha is merged into the compositing mask so chroma removal and background replacement can be combined during full-video processing.
+- Exporter ownership was corrected so a shared background image is not recycled after the first frame.
+- No build, test, APK generation, or CI execution was performed; source implementation remains intentionally unvalidated until the coding pass is complete.
