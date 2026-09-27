@@ -45,4 +45,14 @@
     <string name="load_project">بارگذاری پروژه</string>
     <string name="no_projects">پروژه ذخیره‌شده‌ای وجود ندارد.</string>
     <string name="project_loaded">پروژه بارگذاری شد.</string>
+    <string name="person_export_off">پردازش انسان: خاموش</string>
+    <string name="chroma_export_off">پردازش پرده: خاموش</string>
+    <string name="manual_mask_off">ماسک دستی: خاموش</string>
+    <string name="background_none">بدون پس‌زمینه</string>
+    <string name="background_color">پس‌زمینه رنگی</string>
+    <string name="background_blur">پس‌زمینه محو</string>
+    <string name="background_image">تصویر پس‌زمینه</string>
+    <string name="background_video">ویدیوی پس‌زمینه</string>
+    <string name="background_image_selected">تصویر پس‌زمینه انتخاب شد.</string>
+    <string name="background_video_selected">ویدیوی پس‌زمینه انتخاب شد.</string>
 </resources>
