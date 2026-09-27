@@ -31,6 +31,20 @@
 <EditText android:id="@+id/chromaColor" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/chroma_color" android:text="#14CC14" android:inputType="text"/>
 <Button android:id="@+id/chromaButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/chroma_key"/>
 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+<Button android:id="@+id/personProcessButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/person_export_off"/>
+<Button android:id="@+id/chromaProcessButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/chroma_export_off"/>
+<Button android:id="@+id/manualMaskButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/manual_mask_off"/>
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+<Button android:id="@+id/backgroundNoneButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/background_none"/>
+<Button android:id="@+id/backgroundColorButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/background_color"/>
+<Button android:id="@+id/backgroundBlurButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/background_blur"/>
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+<Button android:id="@+id/backgroundImageButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/background_image"/>
+<Button android:id="@+id/backgroundVideoButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/background_video"/>
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
 <EditText android:id="@+id/startSeconds" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="@string/start_seconds" android:inputType="numberDecimal"/>
 <EditText android:id="@+id/endSeconds" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="@string/end_seconds" android:inputType="numberDecimal"/>
 </LinearLayout>
