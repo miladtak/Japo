@@ -23,6 +23,7 @@ data class ProcessedVideoExportRequest(
     val config: FrameProcessingConfig = FrameProcessingConfig(),
     val backgroundFrameProvider: BackgroundFrameProvider? = null,
     val backgroundVideo: Uri? = null,
+    val backgroundImage: Bitmap? = null,
     val cancel: (() -> Boolean)? = null
 )
 
@@ -70,6 +71,11 @@ class ProcessedVideoExporter(
                 }
                 ownedBackgroundProvider = if (request.backgroundFrameProvider == null) backgroundProvider else null
 
+                val backgroundImage = request.backgroundImage
+                if (request.config.background == com.miladtak.japo.processing.BackgroundMode.IMAGE) {
+                    require(backgroundImage != null) { "Background image is required." }
+                }
+
                 var timestamp = start
                 while (!cancelled.get() && request.cancel?.invoke() != true && timestamp < end) {
                     val decoded = if (timestamp == start) first!!
@@ -85,6 +91,8 @@ class ProcessedVideoExporter(
                         if (request.config.background == com.miladtak.japo.processing.BackgroundMode.VIDEO) {
                             background = backgroundProvider?.frameAt(timestamp)
                                 ?: error("Background video frame unavailable at $timestamp ms")
+                        } else if (request.config.background == com.miladtak.japo.processing.BackgroundMode.IMAGE) {
+                            background = backgroundImage
                         }
                         val result = kotlinx.coroutines.runBlocking {
                             pipeline.process(frame, request.config, background)
