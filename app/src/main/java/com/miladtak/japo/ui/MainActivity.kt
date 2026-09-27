@@ -29,6 +29,8 @@ import com.miladtak.japo.export.VideoExportManager
 import com.miladtak.japo.export.ProcessedVideoExporter
 import com.miladtak.japo.export.ProcessedVideoExportRequest
 import com.miladtak.japo.processing.FrameProcessingConfig
+import com.miladtak.japo.processing.BackgroundMode
+import com.miladtak.japo.processing.ManualMaskMode
 import com.miladtak.japo.processing.StyleMode
 import com.miladtak.japo.logging.ErrorLogStore
 import com.miladtak.japo.layers.Layer
@@ -66,6 +68,30 @@ class MainActivity : ComponentActivity() {
     private var selectedClipId: String? = null
     private var selectedLayerId: String? = null
     private var currentManualMask: Bitmap? = null
+    private var personProcessingEnabled = false
+    private var chromaProcessingEnabled = false
+    private var useManualMask = false
+    private var backgroundMode = BackgroundMode.NONE
+    private var backgroundImageUri: Uri? = null
+    private var backgroundVideoUri: Uri? = null
+
+    private val backgroundImagePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            backgroundImageUri = uri
+            backgroundVideoUri = null
+            backgroundMode = BackgroundMode.IMAGE
+            status.text = getString(R.string.background_image_selected)
+        }
+    }
+
+    private val backgroundVideoPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            backgroundVideoUri = uri
+            backgroundImageUri = null
+            backgroundMode = BackgroundMode.VIDEO
+            status.text = getString(R.string.background_video_selected)
+        }
+    }
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importVideo(uri)
@@ -155,6 +181,38 @@ class MainActivity : ComponentActivity() {
         findViewById<Button>(R.id.segmentButton).setOnClickListener { segmentCurrentFrame() }
         findViewById<Button>(R.id.loadProjectButton).setOnClickListener { loadProjectDialog() }
         findViewById<Button>(R.id.chromaButton).setOnClickListener { chromaCurrentFrame() }
+        findViewById<Button>(R.id.personProcessButton).setOnClickListener {
+            personProcessingEnabled = !personProcessingEnabled
+            updateProcessingStatus()
+        }
+        findViewById<Button>(R.id.chromaProcessButton).setOnClickListener {
+            chromaProcessingEnabled = !chromaProcessingEnabled
+            updateProcessingStatus()
+        }
+        findViewById<Button>(R.id.manualMaskButton).setOnClickListener {
+            useManualMask = !useManualMask
+            updateProcessingStatus()
+        }
+        findViewById<Button>(R.id.backgroundNoneButton).setOnClickListener {
+            backgroundMode = BackgroundMode.NONE
+            backgroundImageUri = null
+            backgroundVideoUri = null
+            updateProcessingStatus()
+        }
+        findViewById<Button>(R.id.backgroundColorButton).setOnClickListener {
+            backgroundMode = BackgroundMode.COLOR
+            updateProcessingStatus()
+        }
+        findViewById<Button>(R.id.backgroundBlurButton).setOnClickListener {
+            backgroundMode = BackgroundMode.BLUR
+            updateProcessingStatus()
+        }
+        findViewById<Button>(R.id.backgroundImageButton).setOnClickListener {
+            backgroundImagePicker.launch(arrayOf("image/*"))
+        }
+        findViewById<Button>(R.id.backgroundVideoButton).setOnClickListener {
+            backgroundVideoPicker.launch(arrayOf("video/*"))
+        }
         exportButton.setOnClickListener { exportVideo() }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -247,6 +305,8 @@ class MainActivity : ComponentActivity() {
         exportButton.isEnabled = false
         status.text = getString(R.string.exporting, 0)
 
+        val parsedChroma = runCatching { Color.parseColor(chromaColor.text.toString().trim()) }
+            .getOrDefault(Color.rgb(20, 204, 20))
         val style = when (filter) {
             ExportFilter.ANIME -> StyleMode.ANIME
             ExportFilter.PENCIL -> StyleMode.PENCIL
@@ -259,7 +319,8 @@ class MainActivity : ComponentActivity() {
             ExportFilter.ILLUSTRATION -> StyleMode.ILLUSTRATION
             else -> StyleMode.NONE
         }
-        if (style != StyleMode.NONE) {
+        if (style != StyleMode.NONE || personProcessingEnabled || chromaProcessingEnabled ||
+            useManualMask || backgroundMode != BackgroundMode.NONE) {
             try {
                 processedExporter.export(
                     ProcessedVideoExportRequest(
@@ -267,7 +328,19 @@ class MainActivity : ComponentActivity() {
                         output = output,
                         startMs = start,
                         endMs = end,
-                        config = FrameProcessingConfig(style = style, styleStrength = 0.65f)
+                        config = FrameProcessingConfig(
+                            enablePersonMask = personProcessingEnabled,
+                            enableChromaKey = chromaProcessingEnabled,
+                            chromaColor = parsedChroma,
+                            style = style,
+                            styleStrength = 0.65f,
+                            manualMask = if (useManualMask) currentManualMask else null,
+                            manualMaskMode = ManualMaskMode.REPLACE,
+                            background = backgroundMode,
+                            backgroundColor = Color.DKGRAY
+                        ),
+                        backgroundVideo = if (backgroundMode == BackgroundMode.VIDEO) backgroundVideoUri else null,
+                        backgroundImage = if (backgroundMode == BackgroundMode.IMAGE) loadBackgroundImage(backgroundImageUri) else null
                     ),
                     onProgress = { percent -> runOnUiThread { status.text = getString(R.string.exporting, percent) } },
                     onComplete = { file ->
@@ -319,6 +392,20 @@ class MainActivity : ComponentActivity() {
             exportButton.isEnabled = true
             status.text = getString(R.string.export_failed, e.message ?: "unknown error")
         }
+    }
+
+    private fun loadBackgroundImage(uri: Uri?): Bitmap? {
+        if (uri == null) return null
+        return contentResolver.openInputStream(uri)?.use { input ->
+            android.graphics.BitmapFactory.decodeStream(input)
+        }
+    }
+
+    private fun updateProcessingStatus() {
+        val person = if (personProcessingEnabled) "انسان" else "بدون انسان"
+        val chroma = if (chromaProcessingEnabled) "پرده" else "بدون پرده"
+        val mask = if (useManualMask && currentManualMask != null) "ماسک دستی" else "بدون ماسک دستی"
+        status.text = "پردازش خروجی: $person، $chroma، $mask، پس‌زمینه=$backgroundMode"
     }
 
     private fun publishExport(file: File): String {
