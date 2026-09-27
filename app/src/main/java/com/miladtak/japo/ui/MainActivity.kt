@@ -415,6 +415,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun updateProcessingStatus() {
+        val personButton = findViewById<Button>(R.id.personProcessButton)
+        val chromaButton = findViewById<Button>(R.id.chromaProcessButton)
+        val maskButton = findViewById<Button>(R.id.manualMaskButton)
+        personButton.text = if (personProcessingEnabled) "پردازش انسان: روشن" else "پردازش انسان: خاموش"
+        chromaButton.text = if (chromaProcessingEnabled) "پردازش پرده: روشن" else "پردازش پرده: خاموش"
+        maskButton.text = if (useManualMask && currentManualMask != null) "ماسک دستی: روشن" else "ماسک دستی: خاموش"
         val person = if (personProcessingEnabled) "انسان" else "بدون انسان"
         val chroma = if (chromaProcessingEnabled) "پرده" else "بدون پرده"
         val mask = if (useManualMask && currentManualMask != null) "ماسک دستی" else "بدون ماسک دستی"
@@ -531,7 +537,8 @@ class MainActivity : ComponentActivity() {
             .setPositiveButton(R.string.save_mask) { _, _ ->
                 currentManualMask?.recycle()
                 currentManualMask = editor.bitmap()
-                status.text = getString(R.string.mask_saved)
+                useManualMask = true
+                updateProcessingStatus()
             }
             .show()
     }
