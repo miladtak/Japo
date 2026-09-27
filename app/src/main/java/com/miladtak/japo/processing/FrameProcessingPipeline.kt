@@ -116,6 +116,15 @@ class FrameProcessingPipeline(
                     current = keyed
                     ownsCurrent = true
                 }
+                val keyedAlpha = extractAlphaMask(current)
+                alpha = if (alpha == null) {
+                    keyedAlpha
+                } else {
+                    val combined = multiplyMasks(alpha, keyedAlpha)
+                    if (!alpha.isRecycled) alpha.recycle()
+                    if (!keyedAlpha.isRecycled) keyedAlpha.recycle()
+                    combined
+                }
             }
 
             if (config.style != StyleMode.NONE) {
@@ -159,6 +168,33 @@ class FrameProcessingPipeline(
     fun resetTemporalState() {
         smoother.reset()
         tracker.reset()
+    }
+
+    private fun extractAlphaMask(bitmap: Bitmap): Bitmap {
+        val out = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        for (i in pixels.indices) {
+            val a = Color.alpha(pixels[i])
+            pixels[i] = Color.argb(a, 255, 255, 255)
+        }
+        out.setPixels(pixels, 0, out.width, 0, 0, out.width, out.height)
+        return out
+    }
+
+    private fun multiplyMasks(a: Bitmap, b: Bitmap): Bitmap {
+        val out = Bitmap.createBitmap(a.width, a.height, Bitmap.Config.ARGB_8888)
+        val pa = IntArray(a.width * a.height)
+        val pb = IntArray(pa.size)
+        val po = IntArray(pa.size)
+        a.getPixels(pa, 0, a.width, 0, 0, a.width, a.height)
+        b.getPixels(pb, 0, b.width, 0, 0, b.width, b.height)
+        for (i in po.indices) {
+            val value = (Color.alpha(pa[i]) * Color.alpha(pb[i])) / 255
+            po[i] = Color.argb(value, 255, 255, 255)
+        }
+        out.setPixels(po, 0, out.width, 0, 0, out.width, out.height)
+        return out
     }
 
     private fun normalizeMask(mask: Bitmap, width: Int, height: Int): Bitmap {
